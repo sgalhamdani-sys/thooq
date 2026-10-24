@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>لوحة العزيمة — ذَوق</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="app-page"><div class="noise"></div>
+    <main class="app-shell">
+      <nav class="app-nav"><a class="brand" href="index.html"><span class="brand-mark">ذ</span><span>ذَوق</span></a><a class="back-link" href="index.html">الرئيسية ←</a></nav>
+      <header class="page-head"><div><p class="eyebrow">عزيمتي الجديدة</p><h1>نرتّب اللَمّة</h1><p class="sub">أعطينا تفاصيل بسيطة، ثم أرسلي الرابط لضيوفك.</p></div><span class="pill">تُحفظ تلقائيًا</span></header>
+      <div class="admin-grid">
+        <section class="event-form">
+          <h2>تفاصيل العزيمة</h2>
+          <form id="event-form">
+            <div class="form-group"><label for="occasion">وش هدف العزيمة؟</label><select id="occasion"><option>لَمّة نهاية الأسبوع</option><option>احتفال بسيط</option><option>لقاء عائلي</option><option>تعارف زملاء</option><option>طلعة صديقات</option></select></div>
+            <div class="form-group"><label for="city">المدينة</label><input id="city" value="الرياض" /></div>
+            <div class="form-group"><label>كم شخص تقريبًا؟</label><div class="choice-row"><label class="choice"><input type="radio" name="guests" value="2–4" checked><span>٢–٤</span></label><label class="choice"><input type="radio" name="guests" value="5–8"><span>٥–٨</span></label><label class="choice"><input type="radio" name="guests" value="9+"><span>٩+</span></label></div></div>
+            <div class="form-group"><label>فئات الضيوف</label><div class="choice-row"><label class="choice"><input type="checkbox" checked><span>شباب</span></label><label class="choice"><input type="checkbox" checked><span>بالغون</span></label><label class="choice"><input type="checkbox"><span>أطفال</span></label><label class="choice"><input type="checkbox"><span>كبار سن</span></label></div></div>
+            <div class="form-group"><label for="note">أي شيء مهم نراعيه؟ <small>(اختياري)</small></label><textarea id="note" rows="3" placeholder="مثل: هدوء، ميزانية متوسطة، خيارات نباتية…"></textarea></div>
+            <button class="button button-dark" type="submit">حفظ التفاصيل <span>←</span></button>
+          </form>
+        </section>
+        <section class="dashboard">
+          <div class="share-card"><h3>أرسلي أسئلة الذَوق لضيوفك</h3><p>ثلاثة أسئلة سريعة تساعدنا نفهم ما يجمعكم.</p><div class="copy-row"><input id="share-url" value="guest.html?event=lamma-weekend" readonly><button id="copy-button">نسخ الرابط</button></div></div>
+          <p class="section-kicker">إجابات الضيوف · ٣ من ٥</p>
+          <div class="answers" id="answers-list">
+            <div class="answer-card"><div class="person"><span class="avatar">ن</span><div><b>نورة</b><small>أجابت قبل ٤ دقائق</small></div></div><span class="status">مكتمل</span></div>
+            <div class="answer-card"><div class="person"><span class="avatar">ل</span><div><b>لولوة</b><small>أجابت قبل ١١ دقيقة</small></div></div><span class="status">مكتمل</span></div>
+            <div class="answer-card"><div class="person"><span class="avatar">ر</span><div><b>ريم</b><small>أجابت الآن</small></div></div><span class="status">مكتمل</span></div>
+          </div>
+          <article class="recommendation"><p class="section-kicker">توصية ذَوق المبدئية</p><h3>جلسة هادئة بطابع دافئ</h3><p>تجربة عشاء في مكان مريح، يتبعها قهوة وحلوى في جلسة هادئة — مناسبة للَمّة نهاية الأسبوع.</p><div class="reason"><strong>ليش هذه التوصية؟</strong><br />يتكرر في إجابات المجموعة الميل للتجارب البصرية الهادئة، القهوة المختصة، والقصص الإنسانية؛ لذلك استبعدنا الأماكن المزدحمة واخترنا تجربة تسمح بالحديث والتمهل.</div></article>
+        </section>
+      </div>
+    </main><div class="toast" id="toast">تم نسخ الرابط</div><script src="app.js"></script>
+  </body>
+</html>

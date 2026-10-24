@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>شاركينا ذوقك — ذَوق</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="app-page"><div class="noise"></div>
+    <main class="guest-layout"><nav class="guest-nav"><a class="brand" href="index.html"><span class="brand-mark">ذ</span><span>ذَوق</span></a><span class="pill">٣ دقائق فقط</span></nav>
+      <div class="event-note"><b>دعوة من نورة إلى لَمّة نهاية الأسبوع</b>نحاول نلقى التجربة التي تناسب الجميع. ما فيه إجابة صح أو غلط.</div>
+      <section class="guest-intro" id="intro"><p class="eyebrow">شاركينا ذوقك</p><h1>وش الأشياء<br /><em>اللي تشبهك؟</em></h1><p>جاوبي على ثلاثة أسئلة بسيطة. إجاباتك ما تظهر للضيوف الآخرين؛ تساعد ذَوق فقط في اقتراح لَمّة تناسبكم.</p></section>
+      <div id="quiz"><div class="progress"><i class="active"></i><i></i><i></i></div>
+        <section class="question active" data-step="1"><h2>وش تسمعين أو تتابعين؟</h2><p>أضيفي ٣ فنانين، مسلسلات، أفلام، أو بودكاست تحبينها الآن.</p><div class="favorites"><label class="favorite-input"><span>٠١</span><input placeholder="مثال: فنانة، مسلسل، أو بودكاست" required></label><label class="favorite-input"><span>٠٢</span><input placeholder="إضافة مفضلة ثانية" required></label><label class="favorite-input"><span>٠٣</span><input placeholder="إضافة مفضلة ثالثة" required></label></div></section>
+        <section class="question" data-step="2"><h2>وين تحسين بالراحة؟</h2><p>أضيفي ٣ أماكن أو تجارب ترجعين لها دائمًا.</p><div class="favorites"><label class="favorite-input"><span>٠١</span><input placeholder="مثال: مقهى، مطعم، مدينة" required></label><label class="favorite-input"><span>٠٢</span><input placeholder="إضافة مفضلة ثانية" required></label><label class="favorite-input"><span>٠٣</span><input placeholder="إضافة مفضلة ثالثة" required></label></div></section>
+        <section class="question" data-step="3"><h2>وش مزاجك للَمّة؟</h2><p>أضيفي ٣ كلمات، أشياء، أو أنماط تتمنينها في أي طلعة.</p><div class="favorites"><label class="favorite-input"><span>٠١</span><input placeholder="مثال: جلسة طويلة، ضحك، هدوء" required></label><label class="favorite-input"><span>٠٢</span><input placeholder="إضافة مفضلة ثانية" required></label><label class="favorite-input"><span>٠٣</span><input placeholder="إضافة مفضلة ثالثة" required></label></div></section>
+        <div class="form-actions"><button class="plain-button" id="previous" type="button">→ السابق</button><button class="button button-dark" id="next" type="button">التالي <span>←</span></button></div>
+      </div>
+      <section class="success" id="success"><span class="brand-mark">ذ</span><h2>وصل ذَوقك ✦</h2><p>شكرًا لمشاركتك. بنرسل إجابتك لصاحبة العزيمة، وذَوق يبدأ يجمع الخيوط.</p></section>
+    </main><script src="app.js"></script>
+  </body>
+</html>
