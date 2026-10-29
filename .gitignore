@@ -147,3 +147,11 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Thooq project data and local scratch (never commit guest replies or secrets)
+dist/
+data/*.json
+data/*.tmp
+work/
+.vscode/
+.DS_Store

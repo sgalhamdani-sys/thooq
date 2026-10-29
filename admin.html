@@ -7,33 +7,38 @@
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="app-page"><div class="noise"></div>
+  <body class="app-page" data-title="admin.docTitle"><div class="noise"></div>
     <main class="app-shell">
-      <nav class="app-nav"><a class="brand" href="index.html"><span class="brand-mark">ذ</span><span>ذَوق</span></a><a class="back-link" href="index.html">الرئيسية ←</a></nav>
-      <header class="page-head"><div><p class="eyebrow">عزيمتي الجديدة</p><h1>نرتّب اللَمّة</h1><p class="sub">أعطينا تفاصيل بسيطة، ثم أرسلي الرابط لضيوفك.</p></div><span class="pill">تُحفظ تلقائيًا</span></header>
+      <nav class="app-nav"><a class="brand" href="index.html"><span class="brand-mark">ذ</span><span>ذَوق</span></a><div class="nav-actions" data-lang-slot><a class="back-link" href="index.html" data-i18n="admin.home">الرئيسية ←</a></div></nav>
+      <header class="page-head"><div><p class="eyebrow" data-i18n="admin.eyebrow">عزيمتي الجديدة</p><h1 data-i18n="admin.title">نرتّب اللَمّة</h1><p class="sub" data-i18n="admin.sub">أعطينا تفاصيل بسيطة، ثم أرسلي الرابط لضيوفك.</p></div><span class="pill" data-i18n="admin.saved">تُحفظ تلقائيًا</span></header>
+      <p class="demo-banner" id="demo-banner" hidden data-i18n="admin.demo.banner"></p>
       <div class="admin-grid">
         <section class="event-form">
-          <h2>تفاصيل العزيمة</h2>
+          <h2 data-i18n="admin.form.title">تفاصيل العزيمة</h2>
           <form id="event-form">
-            <div class="form-group"><label for="occasion">وش هدف العزيمة؟</label><select id="occasion"><option>لَمّة نهاية الأسبوع</option><option>احتفال بسيط</option><option>لقاء عائلي</option><option>تعارف زملاء</option><option>طلعة صديقات</option></select></div>
-            <div class="form-group"><label for="city">المدينة</label><input id="city" value="الرياض" /></div>
-            <div class="form-group"><label>كم شخص تقريبًا؟</label><div class="choice-row"><label class="choice"><input type="radio" name="guests" value="2–4" checked><span>٢–٤</span></label><label class="choice"><input type="radio" name="guests" value="5–8"><span>٥–٨</span></label><label class="choice"><input type="radio" name="guests" value="9+"><span>٩+</span></label></div></div>
-            <div class="form-group"><label>فئات الضيوف</label><div class="choice-row"><label class="choice"><input type="checkbox" checked><span>شباب</span></label><label class="choice"><input type="checkbox" checked><span>بالغون</span></label><label class="choice"><input type="checkbox"><span>أطفال</span></label><label class="choice"><input type="checkbox"><span>كبار سن</span></label></div></div>
-            <div class="form-group"><label for="note">أي شيء مهم نراعيه؟ <small>(اختياري)</small></label><textarea id="note" rows="3" placeholder="مثل: هدوء، ميزانية متوسطة، خيارات نباتية…"></textarea></div>
-            <button class="button button-dark" type="submit">حفظ التفاصيل <span>←</span></button>
+            <div class="form-group"><label for="occasion" data-i18n="admin.form.occasion">وش هدف العزيمة؟</label><select id="occasion"><option data-i18n="occasion.weekend" data-i18n-value="occasion.weekend">لَمّة نهاية الأسبوع</option><option data-i18n="occasion.celebration" data-i18n-value="occasion.celebration">احتفال بسيط</option><option data-i18n="occasion.family" data-i18n-value="occasion.family">لقاء عائلي</option><option data-i18n="occasion.colleagues" data-i18n-value="occasion.colleagues">تعارف زملاء</option><option data-i18n="occasion.friends" data-i18n-value="occasion.friends">طلعة صديقات</option></select></div>
+            <div class="form-group"><label for="city" data-i18n="admin.form.city">المدينة</label><input id="city" value="الرياض" data-i18n-value="admin.form.cityDefault" /></div>
+            <div class="form-group"><label data-i18n="admin.form.size">كم شخص تقريبًا؟</label><div class="choice-row"><label class="choice"><input type="radio" name="guests" value="2–4" checked><span data-i18n="size.small">٢–٤</span></label><label class="choice"><input type="radio" name="guests" value="5–8"><span data-i18n="size.medium">٥–٨</span></label><label class="choice"><input type="radio" name="guests" value="9+"><span data-i18n="size.large">٩+</span></label></div></div>
+            <div class="form-group"><label data-i18n="admin.form.ages">فئات الضيوف</label><div class="choice-row"><label class="choice"><input type="checkbox" value="شباب" checked><span data-i18n="age.youth">شباب</span></label><label class="choice"><input type="checkbox" value="بالغون" checked><span data-i18n="age.adults">بالغون</span></label><label class="choice"><input type="checkbox" value="أطفال"><span data-i18n="age.children">أطفال</span></label><label class="choice"><input type="checkbox" value="كبار سن"><span data-i18n="age.seniors">كبار سن</span></label></div></div>
+            <div class="form-group"><label for="note"><span data-i18n="admin.form.note">أي شيء مهم نراعيه؟</span> <small data-i18n="admin.form.optional">(اختياري)</small></label><textarea id="note" rows="3" placeholder="مثل: هدوء، ميزانية متوسطة، خيارات نباتية…" data-i18n-placeholder="admin.form.notePlaceholder"></textarea></div>
+            <button class="button button-dark" type="submit"><b data-i18n="admin.form.save">حفظ التفاصيل</b> <span>←</span></button>
           </form>
         </section>
         <section class="dashboard">
-          <div class="share-card"><h3>أرسلي أسئلة الذَوق لضيوفك</h3><p>ثلاثة أسئلة سريعة تساعدنا نفهم ما يجمعكم.</p><div class="copy-row"><input id="share-url" value="guest.html?event=lamma-weekend" readonly><button id="copy-button">نسخ الرابط</button></div></div>
-          <p class="section-kicker">إجابات الضيوف · ٣ من ٥</p>
-          <div class="answers" id="answers-list">
-            <div class="answer-card"><div class="person"><span class="avatar">ن</span><div><b>نورة</b><small>أجابت قبل ٤ دقائق</small></div></div><span class="status">مكتمل</span></div>
-            <div class="answer-card"><div class="person"><span class="avatar">ل</span><div><b>لولوة</b><small>أجابت قبل ١١ دقيقة</small></div></div><span class="status">مكتمل</span></div>
-            <div class="answer-card"><div class="person"><span class="avatar">ر</span><div><b>ريم</b><small>أجابت الآن</small></div></div><span class="status">مكتمل</span></div>
-          </div>
-          <article class="recommendation"><p class="section-kicker">توصية ذَوق المبدئية</p><h3>جلسة هادئة بطابع دافئ</h3><p>تجربة عشاء في مكان مريح، يتبعها قهوة وحلوى في جلسة هادئة — مناسبة للَمّة نهاية الأسبوع.</p><div class="reason"><strong>ليش هذه التوصية؟</strong><br />يتكرر في إجابات المجموعة الميل للتجارب البصرية الهادئة، القهوة المختصة، والقصص الإنسانية؛ لذلك استبعدنا الأماكن المزدحمة واخترنا تجربة تسمح بالحديث والتمهل.</div></article>
+          <div class="share-card"><h3 data-i18n="admin.share.title">أرسلي أسئلة الذَوق لضيوفك</h3><p data-i18n="admin.share.text">ثلاثة أسئلة سريعة تساعدنا نفهم ما يجمعكم.</p><div class="copy-row"><input id="share-url" value="guest.html?event=lamma-weekend" readonly><button id="copy-button" data-i18n="admin.share.copy">نسخ الرابط</button></div></div>
+          <p class="section-kicker" id="answers-kicker" data-i18n="admin.answers">إجابات الضيوف</p>
+          <div class="answers" id="answers-list"></div>
+          <article class="recommendation" id="recommendation-box"><p class="section-kicker" data-i18n="admin.rec.kicker">توصية ذَوق</p><h3 data-i18n="admin.rec.waiting">بانتظار إجابات الضيوف</h3><p data-i18n="admin.rec.waitingText">عندما تصل إجابة واحدة على الأقل، استخدمي الزر أدناه لبناء التوصية.</p><button class="button button-quiet" id="recommend-button" type="button" data-i18n="admin.rec.build">ابني التوصية</button></article>
+          <section class="share-card recommendation-share" id="recommendation-share" hidden aria-labelledby="recommendation-share-title">
+            <h3 id="recommendation-share-title" data-i18n="admin.recShare.title">شاركي التوصية وخذي رأي الضيوف</h3>
+            <p data-i18n="admin.recShare.text">هذا رابط مستقل عن الأسئلة. يعرض هذه التوصية ويتيح تقييمها، ويبقى مرتبطًا بها بعد إنشاء توصية جديدة.</p>
+            <div class="copy-row"><input id="recommendation-url" aria-label="رابط التوصية والتقييم" data-i18n-aria="admin.recShare.urlLabel" readonly><button id="copy-recommendation-button" type="button" data-i18n="admin.recShare.copy">نسخ رابط التوصية</button></div>
+            <p id="feedback-summary" role="status" aria-live="polite"></p>
+            <button class="button button-quiet" id="refresh-feedback-button" type="button" data-i18n="admin.recShare.refresh">تحديث التقييمات</button>
+            <p class="feedback-hint" data-i18n="admin.recShare.hint">التقييمات تدخل في ترتيب التوصية التالية عند الضغط على «حدّثي التوصية».</p>
+          </section>
         </section>
       </div>
-    </main><div class="toast" id="toast">تم نسخ الرابط</div><script src="app.js"></script>
+    </main><div class="toast" id="toast" data-i18n="toast.copied">تم نسخ الرابط</div><script src="i18n.js"></script><script src="plan-render.js"></script><script src="app.js"></script>
   </body>
 </html>

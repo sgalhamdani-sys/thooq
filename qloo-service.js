@@ -1,0 +1,215 @@
+import { translatePreferences, callGemini } from './gemini-service.js';
+import { rankWithFeedback } from './feedback-service.js';
+import { runQloo, qlooStatus } from './qloo-workflows.js';
+import { addToPool, groupSignalInputs, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
+import { planGathering } from './agent-service.js';
+import { bilingualError, copy, languageOf } from './copy.js';
+
+export { qlooStatus };
+
+export const MAX_SIGNALS = 60;
+const unique = values => [...new Set(values.filter(Boolean))];
+const clip = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+const guestLabel = index => `G${index + 1}`;
+
+// Compatibility wrapper for callers that only need the recommend workflow.
+export const executeRecommendation = input => runQloo('recommend', input);
+
+function sortedUnion(...lists) {
+  return [...new Set(lists.flat().filter(Number.isInteger))].sort((a, b) => a - b);
+}
+
+// Which guests own each signal after the host confirms or corrects names.
+export function remapSignalOwners(previous, confirmed) {
+  const before = previous?.querySignals ?? previous?.signals ?? [];
+  const owners = previous?.signalOwners ?? {};
+  const issues = previous?.clarifications ?? [];
+  const next = {};
+  const add = (signal, guests) => { if (guests?.length) next[signal] = sortedUnion(next[signal] || [], guests); };
+  const issueOfCandidate = new Map(issues.flatMap(issue => (issue.candidates || []).map(candidate => [candidate.id, issue.input])));
+  const handled = new Set();
+  const corrections = [];
+  confirmed.forEach((signal, position) => {
+    if (before.includes(signal)) { add(signal, owners[signal]); handled.add(signal); }
+    else if (issueOfCandidate.has(signal)) { add(signal, owners[issueOfCandidate.get(signal)]); handled.add(issueOfCandidate.get(signal)); }
+    else if (confirmed.length === before.length && !confirmed.includes(before[position])) { add(signal, owners[before[position]]); handled.add(before[position]); }
+    else corrections.push(signal);
+  });
+  // Remaining free-text corrections replace unresolved names in order.
+  const open = issues.map(issue => issue.input).filter(input => !handled.has(input) && !confirmed.includes(input));
+  corrections.forEach((signal, index) => add(signal, owners[open[index]]));
+  return next;
+}
+
+async function resolveSignals(event, translate) {
+  const previous = event.recommendation;
+  if (event.confirmedSignals) {
+    const signals = unique(event.confirmedSignals.map(value => String(value).trim()));
+    return { signals, owners: remapSignalOwners(previous, signals) };
+  }
+  const saved = previous?.querySignals ?? previous?.signals;
+  if (saved?.length) return { signals: unique(saved.map(value => String(value).trim())), owners: previous.signalOwners ?? {} };
+  const perGuest = event.answers.map(answer => unique(answer.answers.slice(0, 2).flat().map(value => String(value).trim())));
+  const originals = unique(perGuest.flat()).slice(0, MAX_SIGNALS);
+  // Favourites already resolved to Qloo IDs (the demo gathering) skip ambiguity.
+  const known = event.knownSignals || {};
+  const translated = (await translate(originals)).map(value => String(value).trim()).map(value => known[value.toLowerCase()]?.id || value);
+  const english = new Map(originals.map((value, index) => [value, translated[index]]));
+  const owners = {};
+  perGuest.forEach((favourites, index) => favourites.forEach(value => {
+    const signal = english.get(value);
+    if (signal) owners[signal] = sortedUnion(owners[signal] || [], [index]);
+  }));
+  return { signals: unique(translated), owners };
+}
+
+function clarificationsFrom(results, signals) {
+  const byInput = new Map();
+  for (const result of results) {
+    if (result?.status !== 'needs_input') continue;
+    // The workflow envelope uses resolution.issues[].kind, NOT outcome.status.
+    for (const issue of result.resolution?.issues || []) {
+      if ((issue.field && issue.field !== 'signals') || !signals.includes(issue.input) || !['ambiguous', 'not_found'].includes(issue.kind) || byInput.has(issue.input)) continue;
+      byInput.set(issue.input, {
+        input: issue.input, kind: issue.kind,
+        candidates: (issue.candidates || []).slice(0, 8).map(candidate => ({
+          id: candidate.id, name: candidate.name, type: candidate.type,
+          releaseYear: candidate.release_year,
+          address: typeof candidate.address === 'string' ? candidate.address : '',
+          description: typeof candidate.description === 'string' ? candidate.description.slice(0, 180) : ''
+        })).filter(candidate => typeof candidate.id === 'string' && typeof candidate.name === 'string')
+      });
+    }
+  }
+  return [...byInput.values()];
+}
+
+// Each guest contributes their strongest places, so nobody's taste is missing from the shortlist.
+function buildShortlist(groupIds, guestLists) {
+  const shortlist = groupIds.slice(0, 4);
+  for (let round = 0; shortlist.length < MAX_OPTIONS && guestLists.some(list => round < list.length); round++) {
+    for (const list of guestLists) if (list[round] && !shortlist.includes(list[round]) && shortlist.length < MAX_OPTIONS) shortlist.push(list[round]);
+  }
+  for (const id of groupIds) if (!shortlist.includes(id) && shortlist.length < MAX_OPTIONS) shortlist.push(id);
+  return shortlist;
+}
+
+const resultIds = (result, pool) => (Array.isArray(result?.results) ? result.results : []).map(entity => entity?.entity_id || entity?.id).filter(id => pool.has(id));
+
+export async function buildTasteRecommendation(event, {
+  qloo = runQloo,
+  translate = translatePreferences,
+  generate = process.env.GEMINI_API_KEY ? body => callGemini(body, { timeoutMs: 30000, retries: 0 }) : undefined,
+  plan = planGathering
+} = {}) {
+  const previous = event.recommendation;
+  const lang = languageOf(event.language);
+  const c = copy(lang);
+  const { signals, owners } = await resolveSignals(event, translate);
+  if (!signals.length) throw bilingualError('أبقي مفضلة واحدة على الأقل للبحث عن أماكن تناسب ذوقكم.', 'Keep at least one favourite to search for places that suit you.');
+  // A confirmation must resolve or remove each issue, not resubmit the same names.
+  if (event.confirmedSignals && previous?.reviewVersion === 2) {
+    const unchanged = previous.clarifications?.find(issue => signals.includes(issue.input));
+    if (unchanged) throw bilingualError(`«${unchanged.input}» ما زال يحتاج تحديدًا. اختاري نتيجة من القائمة، أو صححي الاسم، أو تجاهلي هذه المفضلة.`, `"${unchanged.input}" still needs a choice. Pick a result from the list, correct the name, or skip this favourite.`);
+  }
+  const knownNames = Object.fromEntries(Object.values(event.knownSignals || {}).map(item => [item.id, item.name]));
+  const signalLabels = Object.fromEntries(signals.map(signal => {
+    const candidate = previous?.clarifications?.flatMap(issue => issue.candidates || []).find(item => item.id === signal);
+    return [signal, candidate?.name || previous?.signalLabels?.[signal] || knownNames[signal] || signal];
+  }));
+  const cityQuery = /رياض|riyadh/i.test(event.city) ? 'Riyadh, Saudi Arabia' : event.city;
+
+  // 1) Resolve each guest's favourites and find places for each guest's own taste.
+  const guests = event.answers.map((answer, index) => ({
+    index,
+    moods: (answer.answers?.[2] || []).map(mood => clip(mood, 100)).filter(Boolean),
+    inputs: signals.filter(signal => owners[signal]?.includes(index)).slice(0, 10),
+    resolved: []
+  }));
+  const orphans = signals.filter(signal => !owners[signal]?.length);
+  const batches = [
+    ...guests.filter(guest => guest.inputs.length).map(guest => ({ guest, inputs: guest.inputs, source: guestLabel(guest.index) })),
+    ...Array.from({ length: Math.ceil(orphans.length / 10) }, (_, index) => ({ guest: null, inputs: orphans.slice(index * 10, index * 10 + 10), source: 'group' }))
+  ];
+  const results = await Promise.all(batches.map(batch => qloo('recommend', { target_type: 'place', signals: batch.inputs, filter_location: cityQuery, explain: false, limit: 10 })));
+  if (results.some(result => result?.status === 'needs_input')) {
+    const clarifications = clarificationsFrom(results, signals);
+    if (!clarifications.length) throw bilingualError('طلب Qloo توضيحًا لم نتمكن من عرضه. لم يتم إنشاء توصية؛ حاولي مجددًا لاحقًا.', 'Qloo asked for a clarification we could not display. No plan was created; please try again later.');
+    return {
+      source: 'qloo-needs-input', reviewVersion: 2,
+      title: c.review.title,
+      summary: c.review.summary(clarifications.length),
+      reason: c.review.reason, language: lang,
+      signals, querySignals: signals, signalLabels, signalOwners: owners, clarifications, places: []
+    };
+  }
+  if (results.some(result => !['ok', 'partial', 'empty'].includes(result?.status))) throw bilingualError('لم تكتمل توصية Qloo. تحققي من اتصال الخدمة وإعداداتها ثم حاولي مجددًا.', 'The Qloo search did not complete. Check the service connection and settings, then try again.');
+
+  const pool = new Map();
+  const guestLists = [];
+  const orphanGuest = { index: -1, resolved: [] };
+  results.forEach((result, position) => {
+    const batch = batches[position];
+    const resolved = (result.interpretation?.signals || [])
+      .filter(match => typeof match?.input === 'string' && batch.inputs.includes(match.input))
+      .map(match => ({ input: match.input, id: match.entityId, name: typeof match.name === 'string' ? match.name : match.input }));
+    resolved.forEach(item => { signalLabels[item.input] = item.name; });
+    (batch.guest || orphanGuest).resolved.push(...resolved);
+    addToPool(pool, result.results, batch.source);
+    if (batch.guest) guestLists.push(resultIds(result, pool));
+  });
+
+  // 2) One combined call for the whole group's taste.
+  const groupInputs = groupSignalInputs([...guests, orphanGuest]);
+  const groupResult = groupInputs.length ? await qloo('recommend', { target_type: 'place', signals: groupInputs, filter_location: cityQuery, explain: false, limit: 15 }) : undefined;
+  if (groupResult && ['ok', 'partial'].includes(groupResult.status)) addToPool(pool, groupResult.results, 'group');
+  const groupIds = resultIds(groupResult, pool);
+  const selection = { querySignals: signals, signalLabels, signalOwners: owners };
+  if (!pool.size) return { ...selection, source: 'qloo-empty', language: lang, title: c.empty.title, summary: c.empty.summary(event.city), reason: c.empty.reason, places: [] };
+
+  // 3) Rank a balanced shortlist against every guest, then apply saved feedback.
+  const shortlist = buildShortlist(groupIds, guestLists);
+  const fit = await scoreGroupFit({ placeIds: shortlist, guests, qloo });
+  const ranked = rankWithFeedback(orderByFit(shortlist, fit).map(id => pool.get(id)), { ...selection, city: event.city, occasion: event.occasion }, event.feedbackHistory);
+  const ordered = ranked.places.map(place => place.id);
+  fit.order = ordered;
+
+  // 4) The agent turns tastes, moods and constraints into a plan.
+  const scoredGuests = guests.filter(guest => guest.resolved.length).length;
+  const steps = [
+    { kind: 'read', text: c.steps.read(guests.length, new Set([...guests, orphanGuest].flatMap(guest => guest.resolved.map(item => item.id))).size) },
+    { kind: 'search', text: c.steps.search(event.city, pool.size) },
+    { kind: 'fit', text: c.steps.fit(ordered.length, scoredGuests, guests.length) }
+  ];
+  const outcome = await plan({ event, guests, pool, fit, shortlist: ordered, qloo, generate, cityQuery, lang });
+  if (outcome.mode !== 'agent') console.warn(`Thooq agent fallback: ${outcome.failure}${outcome.error ? ` — ${outcome.error}` : ''}`);
+  const finalFit = outcome.fit;
+  const fitOf = id => {
+    const entry = finalFit.places[id];
+    if (!entry) return undefined;
+    return {
+      count: entry.count, total: entry.total, guests: entry.fits,
+      tastes: entry.fits.map(index => ({ guest: index, favourites: guests[index].resolved.map(item => item.name).slice(0, 3) }))
+    };
+  };
+  const placeOut = id => {
+    const place = pool.get(id);
+    return { id, name: place.name, address: place.address || '', fit: fitOf(id) };
+  };
+  const places = [
+    ...outcome.plan.stops.map(stop => ({ ...placeOut(stop.id), role: stop.role, why: stop.why, stop: true })),
+    ...outcome.alternatives.map(id => ({ ...placeOut(id), alternative: true }))
+  ];
+  return {
+    ...selection, source: 'qloo', learning: ranked.learning,
+    title: outcome.plan.title,
+    summary: outcome.plan.concept || c.plan.defaultSummary(event.occasion, event.city),
+    reason: c.plan.reason(unique(signals.map(signal => signalLabels[signal])), ranked.learning.ratingsUsed > 0),
+    language: lang,
+    considerations: outcome.plan.considerations || [],
+    agent: { mode: outcome.mode, ...(outcome.failure ? { failure: outcome.failure } : {}), ...(outcome.error ? { detail: clip(outcome.error, 200) } : {}) },
+    agentSteps: [...steps, ...outcome.steps],
+    groupFit: { method: finalFit.method, total: finalFit.total, guests: guests.length },
+    places
+  };
+}

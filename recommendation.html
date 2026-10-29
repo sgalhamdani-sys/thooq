@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="referrer" content="no-referrer" />
+    <title>توصيتكم ورأيكم — ذَوق</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="i18n.js" defer></script>
+    <script src="plan-render.js" defer></script>
+    <script src="recommendation.js" defer></script>
+  </head>
+  <body class="app-page" data-title="shared.docTitle">
+    <div class="noise"></div>
+    <main class="guest-layout recommendation-page">
+      <nav class="guest-nav"><a class="brand" href="index.html"><span class="brand-mark">ذ</span><span>ذَوق</span></a><div class="nav-actions" data-lang-slot><span class="pill" data-i18n="shared.pill">رأيكم يصنع الفرق</span></div></nav>
+      <header class="guest-intro"><p class="eyebrow" data-i18n="shared.eyebrow">توصيتكم جاهزة</p><h1 data-i18n-html="shared.title">وش رأيكم<br />بهاللَمّة؟</h1><p id="shared-event" data-i18n="shared.loading">نحمّل تفاصيل التوصية…</p></header>
+      <p id="shared-error" role="alert" hidden></p>
+      <article class="recommendation" id="shared-recommendation" hidden>
+        <p class="section-kicker" data-i18n="shared.kicker">خطة ذَوق · أماكن من Qloo</p>
+        <h2 id="shared-title"></h2>
+        <p id="shared-summary"></p>
+        <div id="shared-places" class="shared-places"></div>
+        <div class="reason"><strong data-i18n="shared.why">ليش هذه التوصية؟</strong><p id="shared-reason"></p></div>
+      </article>
+      <section class="feedback-card" id="feedback-card" hidden aria-labelledby="rating-title">
+        <p class="eyebrow" data-i18n="shared.feedback.eyebrow">ساعدونا نضبط الذَوق</p>
+        <h2 id="rating-title" data-i18n="shared.feedback.title">هل التوصية مناسبة لكم؟</h2>
+        <p data-i18n="shared.feedback.text">قيّموا التوصية كاملة. رأيكم يساعدنا في ترتيب الاقتراحات القادمة للمفضلات المتشابهة في المدينة نفسها.</p>
+        <div class="rating-actions" role="group" aria-label="تقييم التوصية" data-i18n-aria="shared.rate">
+          <button class="button rating-good" type="button" data-rating="good" aria-pressed="false"><b data-i18n="shared.good">جيدة</b> <span aria-hidden="true">✓</span></button>
+          <button class="button rating-bad" type="button" data-rating="bad" aria-pressed="false"><b data-i18n="shared.bad">سيئة</b> <span aria-hidden="true">×</span></button>
+        </div>
+        <p id="rating-status" role="status" aria-live="polite"></p>
+        <p id="rating-error" role="alert" hidden></p>
+        <p id="rating-totals" class="feedback-totals"></p>
+        <small data-i18n="shared.privacy">نحفظ تقييمًا واحدًا لكل متصفح لهذه التوصية، ويمكنك تغييره. نستخدم ملف ارتباط للتعرّف على تقييمك دون طلب اسمك.</small>
+      </section>
+      <noscript>فعّلي JavaScript لعرض التوصية وإرسال تقييمك. · Enable JavaScript to see the plan and vote.</noscript>
+    </main>
+  </body>
+</html>

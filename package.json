@@ -1,0 +1,20 @@
+{
+  "name": "thooq",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An Arabic-first, taste-powered gathering planner for the Qloo Agentic Hackathon.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "start": "node --env-file-if-exists=.env server.js",
+    "dev": "node --env-file-if-exists=.env --watch server.js",
+    "smoke": "node --env-file-if-exists=.env scripts/live-smoke.mjs",
+    "demo:prepare": "node --env-file-if-exists=.env scripts/prepare-demo.mjs"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "dependencies": {
+    "@qloo/qloo-harness": "^0.1.26"
+  }
+}

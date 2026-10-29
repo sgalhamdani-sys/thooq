@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ذَوق — عزيمة على ذوقكم</title>
+    <meta name="description" content="Thooq (ذَوق): an Arabic-first AI agent that plans gatherings everyone enjoys, grounded in each guest's real cultural taste with Qloo." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body data-title="index.docTitle">
     <div class="noise"></div>
     <main class="landing shell">
       <nav class="nav">
@@ -17,36 +18,38 @@
           <span class="brand-mark">ذ</span>
           <span>ذَوق</span>
         </a>
-        <a class="text-link" href="admin.html">لدي عزيمة</a>
+        <div class="nav-actions" data-lang-slot><a class="text-link" href="admin.html" data-i18n="index.host">لدي عزيمة</a></div>
       </nav>
 
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">لَـمّة على ذوق الكل</p>
-          <h1>مو كل عزيمة<br /><em>لها نفس الذَوق.</em></h1>
-          <p class="lede">ذَوق يفهم ما يجمع ضيوفك، ويقترح تجربة تليق بهم — من غير تصويت محيّر أو اقتراحات عامة.</p>
+          <p class="eyebrow" data-i18n="index.eyebrow">لَـمّة على ذوق الكل</p>
+          <h1 data-i18n-html="index.title">مو كل عزيمة<br /><em>لها نفس الذَوق.</em></h1>
+          <p class="lede" data-i18n="index.lede">ذَوق يفهم ما يجمع ضيوفك، ويقترح تجربة تليق بهم — من غير تصويت محيّر أو اقتراحات عامة.</p>
           <div class="hero-actions">
-            <a class="button button-dark" href="admin.html">ابدئي عزيمتك <span>←</span></a>
-            <a class="button button-quiet" href="guest.html?demo=true">شاهدي تجربة الضيف</a>
+            <a class="button button-dark" href="admin.html?demo=new"><b data-i18n="index.demo">جرّبي العرض التجريبي</b> <span>←</span></a>
+            <a class="button button-quiet" href="admin.html" data-i18n="index.start">ابدئي عزيمتك</a>
+            <a class="text-link" href="guest.html?demo=true" data-i18n="index.guest">شاهدي تجربة الضيف</a>
           </div>
         </div>
         <div class="hero-art" aria-hidden="true">
           <div class="circle circle-1"></div>
           <div class="circle circle-2"></div>
-          <div class="card card-top"><span>✦</span> تجمعنا الأشياء التي نحبها</div>
-          <div class="card card-bottom"><span class="tiny-label">ذَوق</span><b>لَمّة<br />الويكند</b></div>
+          <div class="card card-top"><span>✦</span> <b data-i18n="index.card">تجمعنا الأشياء التي نحبها</b></div>
+          <div class="card card-bottom"><span class="tiny-label" data-i18n="index.cardLabel">ذَوق</span><b data-i18n-html="index.cardTitle">لَمّة<br />الويكند</b></div>
           <div class="doodle">⌁</div>
         </div>
       </section>
 
       <section class="how-it-works">
-        <p class="eyebrow">كيف يعمل؟</p>
+        <p class="eyebrow" data-i18n="index.how">كيف يعمل؟</p>
         <div class="steps">
-          <article><span>١</span><h2>صاحبة العزيمة تحدد المناسبة</h2><p>المكان، عدد الضيوف، والجو الذي تتخيله.</p></article>
-          <article><span>٢</span><h2>الضيوف يشاركون ذوقهم</h2><p>ثلاثة أسئلة قصيرة، وثلاثة مفضلات في كل سؤال.</p></article>
-          <article><span>٣</span><h2>ذَوق يجد نقطة الالتقاء</h2><p>توصية شخصية مع تفسير مفهوم للجميع.</p></article>
+          <article><span data-num="1">١</span><h2 data-i18n="index.step1.title">صاحبة العزيمة تحدد المناسبة</h2><p data-i18n="index.step1.text">المدينة، عدد الضيوف وأعمارهم، الميزانية، والجو الذي تتخيله.</p></article>
+          <article><span data-num="2">٢</span><h2 data-i18n="index.step2.title">الضيوف يشاركون ذوقهم</h2><p data-i18n="index.step2.text">ثلاثة أسئلة قصيرة: ما يتابعونه، الأماكن التي يحبونها، ومزاجهم للَمّة.</p></article>
+          <article><span data-num="3">٣</span><h2 data-i18n="index.step3.title">ذَوق يجد نقطة الالتقاء</h2><p data-i18n="index.step3.text">وكيل ذكي يرتّب الأماكن حسب ذوق كل ضيف عبر Qloo، ويقترح خطة تناسب الجميع مع تفسير واضح.</p></article>
         </div>
       </section>
     </main>
+    <script src="i18n.js"></script>
   </body>
 </html>
