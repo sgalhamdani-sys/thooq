@@ -30,18 +30,53 @@ const uniqueFavourites = () => {
   return [...seen.values()];
 };
 
-// Resolve each demo favourite within its Qloo type; ambiguous names take Qloo's first candidate.
-export async function resolveDemoFavourites(qloo) {
-  const entries = await Promise.all(uniqueFavourites().map(async ({ name, type }) => {
-    const result = await qloo('describe', { entity: name, type });
+// Resolve each demo favourite within its Qloo type. Lookups run a few at a time and
+// retry errors, so a burst of requests does not leave favourites out. When a name is
+// ambiguous, only a candidate whose name matches is accepted (never an unrelated one).
+const plainName = text => String(text || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]/gu, '');
+function matchingCandidate(candidates, name) {
+  const wanted = plainName(name);
+  const usable = candidates.map((candidate, index) => ({ candidate, index, plain: plainName(candidate?.name) })).filter(entry => entry.candidate?.id && entry.plain);
+  return usable.find(entry => entry.plain === wanted) || usable.find(entry => entry.plain.includes(wanted) || wanted.includes(entry.plain));
+}
+
+async function describeWithRetry(qloo, input, { attempts = 3, wait = attempt => new Promise(done => setTimeout(done, 1500 * attempt)) } = {}) {
+  let result;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try { result = await qloo('describe', input); } catch (error) { result = { status: 'error', error: { code: error?.code || error?.message || 'exception' } }; }
+    if (result?.status !== 'error') return result;
+    if (attempt < attempts) await wait(attempt);
+  }
+  return result;
+}
+
+export async function resolveDemoFavourites(qloo, { concurrency = 3, onResult, wait } = {}) {
+  const items = uniqueFavourites();
+  const entries = new Array(items.length);
+  let next = 0;
+  const resolveOne = async ({ name, type }) => {
+    const result = await describeWithRetry(qloo, { entity: name, type }, wait ? { wait } : {});
     if (result?.status === 'ok') {
       const entity = result.interpretation?.entity;
       const first = Array.isArray(result.results) ? result.results[0] : undefined;
       const id = entity?.entityId || first?.entity_id;
-      return id ? [name, { id, name: entity?.name || first?.name || name, type }] : [name, null];
+      return id ? { match: { id, name: entity?.name || first?.name || name, type } } : { match: null, reason: 'not found in Qloo' };
     }
-    const candidate = result?.status === 'needs_input' ? result.resolution?.issues?.[0]?.candidates?.[0] : undefined;
-    return [name, candidate?.id ? { id: candidate.id, name: candidate.name || name, type, picked: 'first-candidate' } : null];
+    if (result?.status === 'needs_input') {
+      const candidates = result.resolution?.issues?.[0]?.candidates || [];
+      const found = matchingCandidate(candidates, name);
+      if (found) return { match: { id: found.candidate.id, name: found.candidate.name || name, type, picked: found.index === 0 ? 'first-candidate' : 'matching-candidate' } };
+      return { match: null, reason: candidates.length ? `no candidate named like it (Qloo offered: ${candidates.slice(0, 3).map(candidate => candidate?.name).filter(Boolean).join(', ')})` : 'not found in Qloo' };
+    }
+    return { match: null, reason: `Qloo error${result?.error?.code ? ` (${result.error.code})` : ''} after retries` };
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      const outcome = await resolveOne(items[index]);
+      entries[index] = [items[index].name, outcome.match];
+      onResult?.(items[index].name, outcome);
+    }
   }));
   return Object.fromEntries(entries);
 }

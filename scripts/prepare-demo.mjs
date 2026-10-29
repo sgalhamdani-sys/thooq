@@ -5,10 +5,9 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { resolveDemoFavourites } from '../demo.js';
 import { runQloo } from '../qloo-workflows.js';
 
-const resolved = await resolveDemoFavourites(runQloo);
-for (const [name, match] of Object.entries(resolved)) {
-  console.log(match ? `✓ ${name} → ${match.name} (${match.type})${match.picked ? ' [first of several matches]' : ''}` : `✗ ${name} → not found in Qloo (left out of the demo)`);
-}
+const resolved = await resolveDemoFavourites(runQloo, {
+  onResult: (name, { match, reason }) => console.log(match ? `✓ ${name} → ${match.name} (${match.type})${match.picked === 'matching-candidate' ? ' [chosen from several matches]' : ''}` : `✗ ${name} → ${reason} (left out of the demo)`)
+});
 const found = Object.values(resolved).filter(Boolean).length;
 if (!found) { console.log('\nNothing resolved; check the Qloo credential and connection.'); process.exit(1); }
 await mkdir(new URL('../demo/', import.meta.url), { recursive: true });

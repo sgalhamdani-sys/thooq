@@ -35,6 +35,29 @@ test('demo favourites resolve within their Qloo type; ambiguity takes the first 
   assert.equal(result.Coldplay.id, 'id-Coldplay');
 });
 
+test('demo resolution rejects unrelated candidates, prefers a matching one, and retries errors', async () => {
+  const attempts = {};
+  const seen = [];
+  const result = await resolveDemoFavourites(async (operation, input) => {
+    attempts[input.entity] = (attempts[input.entity] || 0) + 1;
+    if (input.entity === 'Umm Kulthum') return { status: 'needs_input', resolution: { issues: [{ candidates: [{ id: 'dj', name: 'Ummet Ozcan' }] }] } };
+    if (input.entity === 'Fairuz') return { status: 'needs_input', resolution: { issues: [{ candidates: [{ id: 'other', name: 'Fairuza Balk' }, { id: 'fairuz', name: 'Fairuz' }] }] } };
+    if (input.entity === 'Al Baik') return { status: 'needs_input', resolution: { issues: [{ candidates: [{ id: 'albaik', name: 'AlBaik' }] }] } };
+    if (input.entity === 'Adele' && attempts.Adele < 3) return { status: 'error', error: { code: 'rate_limited' } };
+    if (input.entity === 'Coldplay') return { status: 'error', error: { code: 'rate_limited' } };
+    return { status: 'ok', interpretation: { entity: { entityId: `id-${input.entity}`, name: input.entity } }, results: [] };
+  }, { wait: async () => {}, onResult: (name, outcome) => seen.push([name, outcome]) });
+  assert.equal(result['Umm Kulthum'], null, 'an unrelated first candidate is not used');
+  assert.match(seen.find(([name]) => name === 'Umm Kulthum')[1].reason, /Ummet Ozcan/);
+  assert.deepEqual(result.Fairuz, { id: 'fairuz', name: 'Fairuz', type: 'artist', picked: 'matching-candidate' });
+  assert.equal(result['Al Baik'].id, 'albaik');
+  assert.equal(result.Adele.id, 'id-Adele', 'a temporary error is retried');
+  assert.equal(attempts.Adele, 3);
+  assert.equal(result.Coldplay, null);
+  assert.match(seen.find(([name]) => name === 'Coldplay')[1].reason, /rate_limited/);
+  assert.equal(seen.length, allFavourites.length);
+});
+
 test('a demo copy is ready to plan: English names, constraints and pre-resolved favourites', async () => {
   const event = createDemoEvent('en', resolved);
   assert.equal(event.demo, true);
