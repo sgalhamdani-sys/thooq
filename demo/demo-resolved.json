@@ -1,0 +1,120 @@
+{
+  "Friends": {
+    "id": "4E62202B-3672-4B2E-A21F-C5EA4A0BA01F",
+    "name": "Friends",
+    "type": "tv_show"
+  },
+  "Adele": {
+    "id": "24012F7D-C125-4EB7-A661-6AF65523E43C",
+    "name": "Adele",
+    "type": "artist"
+  },
+  "Coldplay": {
+    "id": "B6FA456F-B729-4700-B01F-E82AD3AC8ADA",
+    "name": "Coldplay",
+    "type": "artist"
+  },
+  "Starbucks": {
+    "id": "B13C02E3-BA3C-4B39-85B4-ACF12FEBC892",
+    "name": "Starbucks",
+    "type": "brand"
+  },
+  "The Cheesecake Factory": {
+    "id": "43E088F9-E1D9-4BB6-A495-A8F04D39D77A",
+    "name": "The Cheesecake Factory",
+    "type": "brand"
+  },
+  "IKEA": {
+    "id": "7E9A2E74-1CB5-43E9-8B74-69CA8283BFBD",
+    "name": "IKEA",
+    "type": "brand"
+  },
+  "Breaking Bad": {
+    "id": "D03D0913-A7B9-4C46-BFEB-958C1B3FA387",
+    "name": "Breaking Bad",
+    "type": "tv_show"
+  },
+  "The Dark Knight": {
+    "id": "3432C364-C883-4A0D-A76B-99A57E5361E5",
+    "name": "The Dark Knight",
+    "type": "movie"
+  },
+  "Mohammed Abdu": {
+    "id": "E8004F07-F0A9-4BA3-8E71-5AB5DAE2E9E2",
+    "name": "Mohammed Abdu",
+    "type": "artist"
+  },
+  "Five Guys": {
+    "id": "6D548BAE-A999-44A2-8FEB-5E92E9AE158F",
+    "name": "Five Guys",
+    "type": "brand"
+  },
+  "Tim Hortons": {
+    "id": "9278BB94-37C8-4C8F-908A-5067ECA014E7",
+    "name": "Tim Hortons",
+    "type": "brand"
+  },
+  "Nike": {
+    "id": "C70CE2B8-0AD1-4150-BF18-5A6347F2E860",
+    "name": "Nike",
+    "type": "brand"
+  },
+  "Spirited Away": {
+    "id": "9B33A620-68CA-49B3-BFCF-F09CCF8AD595",
+    "name": "Spirited Away",
+    "type": "movie"
+  },
+  "BTS": {
+    "id": "F347D506-CB6F-46FA-9A8B-AFBC31C71A1A",
+    "name": "BTS",
+    "type": "artist"
+  },
+  "Stranger Things": {
+    "id": "07F1170E-BB69-4982-82C6-255F477EBBAD",
+    "name": "Stranger Things",
+    "type": "tv_show",
+    "picked": "first-candidate"
+  },
+  "Shake Shack": {
+    "id": "AB3A329B-CF72-468C-A5EE-9CCB29C17EF8",
+    "name": "Shake Shack",
+    "type": "brand"
+  },
+  "Sephora": {
+    "id": "2C5054E1-8691-4F52-83CD-310D029BA6A3",
+    "name": "Sephora",
+    "type": "brand"
+  },
+  "Magnolia Bakery": {
+    "id": "625F2083-7E57-456F-B031-64D01B3DE452",
+    "name": "Magnolia Bakery",
+    "type": "brand"
+  },
+  "Umm Kulthum": null,
+  "Fairuz": {
+    "id": "385D9F2E-340C-416F-920C-767496FA20C7",
+    "name": "Fairuz",
+    "type": "artist"
+  },
+  "Abdel Halim Hafez": {
+    "id": "96AFCEF0-B1D3-42B9-9425-8E5FF0FFF460",
+    "name": "Abdel Halim Hafez",
+    "type": "artist"
+  },
+  "Al Baik": {
+    "id": "4DF20F49-8C0E-4D35-A88B-D3F3B3823DB6",
+    "name": "AlBaik",
+    "type": "brand",
+    "picked": "first-candidate"
+  },
+  "Bateel": {
+    "id": "1859BEE3-AB9C-43B0-B784-0DAB7056DE40",
+    "name": "Bateel",
+    "type": "brand"
+  },
+  "Kudu": {
+    "id": "424A6447-382D-4E01-85B2-F696C94BB56B",
+    "name": "Kudu",
+    "type": "brand"
+  }
+}
