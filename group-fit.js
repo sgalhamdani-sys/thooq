@@ -52,7 +52,7 @@ export function addToPool(pool, entities, source) {
   return added;
 }
 
-export function buildFitMatrix(options, rankings, unranked = []) {
+export function buildFitMatrix(options, rankings, unranked = [], basis = 'affinity') {
   const valid = rankings.filter(item => Array.isArray(item.order) && item.order.length);
   const places = {};
   for (const id of options) {
@@ -69,7 +69,7 @@ export function buildFitMatrix(options, rankings, unranked = []) {
     places[id] = { fits, count: fits.length, total: valid.length, score: Number((0.5 * mean + 0.5 * least).toFixed(4)) };
   }
   const failures = rankings.filter(item => !(Array.isArray(item.order) && item.order.length) && item.failure).map(item => item.failure);
-  return { method: 'per-guest-qloo-rank-v1', total: valid.length, options: [...options], places, ...(failures.length ? { failures } : {}) };
+  return { method: basis === 'affinity' ? 'per-guest-qloo-rank-v1' : 'per-guest-qloo-lift-v2', basis, total: valid.length, options: [...options], places, ...(failures.length ? { failures } : {}) };
 }
 
 // Some places Qloo recommends cannot be looked up again as rank options; one such
@@ -81,15 +81,38 @@ const missingOptions = result => result?.status === 'needs_input'
   ? (result.resolution?.issues || []).filter(issue => issue?.field === 'options' && issue.kind === 'not_found' && typeof issue.input === 'string').map(issue => issue.input)
   : [];
 
+// Taste lift. In Riyadh, Qloo's place affinity is led by popularity, so every
+// guest's raw ranking came out nearly the same and the most popular places
+// "fitted" everyone. A guest's order is now by taste beyond popularity:
+// z(affinity) − POPULARITY_WEIGHT × z(popularity), both from Qloo, over the
+// same options. (Qloo does not accept a no-taste "typical visitor" query, so
+// its popularity score stands in for that baseline.)
+export const POPULARITY_WEIGHT = 0.6;
+function zScores(values) {
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const sd = Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length) || 1;
+  return values.map(value => (value - mean) / sd);
+}
+export function liftOrder(entries) {
+  const scored = entries.filter(entry => typeof entry.affinity === 'number');
+  const rest = entries.filter(entry => typeof entry.affinity !== 'number').sort((a, b) => a.position - b.position);
+  const usePopularity = scored.length >= 3 && scored.every(entry => typeof entry.popularity === 'number');
+  const taste = usePopularity ? zScores(scored.map(entry => entry.affinity)) : [];
+  const base = usePopularity ? zScores(scored.map(entry => entry.popularity)) : [];
+  const ranked = scored.map((entry, index) => ({ ...entry, lift: usePopularity ? taste[index] - POPULARITY_WEIGHT * base[index] : entry.affinity }))
+    .sort((a, b) => b.lift - a.lift || b.affinity - a.affinity || a.position - b.position);
+  return { order: unique([...ranked, ...rest].map(entry => entry.id)), basis: usePopularity ? 'popularity' : 'affinity' };
+}
+
 export async function scoreGroupFit({ placeIds, guests, qloo }) {
   const requested = unique(placeIds).slice(0, MAX_OPTIONS);
   let options = requested.filter(id => !unrankable.has(id));
   const scored = guests.filter(guest => guest.resolved.length);
   const unrankedNow = () => requested.filter(id => !options.includes(id));
   if (!options.length || !scored.length) return buildFitMatrix(requested, [], unrankedNow());
-  const rankOne = async guest => {
-    const signals = unique(guest.resolved.map(item => item.input)).slice(0, 10);
-    let result = await qloo('rank', { options, option_type: 'place', signals });
+  // One rank call, dropping options Qloo cannot look up (at most two rounds).
+  const rankCall = async extra => {
+    let result = await qloo('rank', { options, option_type: 'place', ...extra });
     for (let round = 0; round < 2; round++) {
       const missing = missingOptions(result);
       if (!missing.length) break;
@@ -97,24 +120,35 @@ export async function scoreGroupFit({ placeIds, guests, qloo }) {
       missing.forEach(id => unrankable.add(id));
       options = options.filter(id => !missing.includes(id));
       if (!options.length) break;
-      result = await qloo('rank', { options, option_type: 'place', signals });
+      result = await qloo('rank', { options, option_type: 'place', ...extra });
     }
+    return result;
+  };
+  const entriesOf = result => (Array.isArray(result?.results) ? result.results : [])
+    .map((entity, position) => ({ id: entity?.entity_id || entity?.id, affinity: typeof entity?.affinity === 'number' ? entity.affinity : null, popularity: typeof entity?.popularity === 'number' ? entity.popularity : null, position }))
+    .filter(entry => options.includes(entry.id));
+  const rankOne = async guest => {
+    const result = await rankCall({ signals: unique(guest.resolved.map(item => item.input)).slice(0, 10) });
     if (!['ok', 'partial'].includes(result?.status)) {
       const issues = (result?.resolution?.issues || []).slice(0, 3).map(issue => `${issue.kind || ''} ${issue.field || ''} ${String(issue.input || '').slice(0, 40)}`.trim());
-      return { guest, order: null, failure: { status: result?.status || 'unknown', ...(result?.error?.code ? { code: String(result.error.code) } : {}), ...(issues.length ? { issues } : {}) } };
+      return { guest, entries: null, failure: { status: result?.status || 'unknown', ...(result?.error?.code ? { code: String(result.error.code) } : {}), ...(issues.length ? { issues } : {}) } };
     }
-    const entries = (Array.isArray(result.results) ? result.results : [])
-      .map((entity, position) => ({ id: entity?.entity_id || entity?.id, affinity: typeof entity?.affinity === 'number' ? entity.affinity : null, position }))
-      .filter(entry => options.includes(entry.id));
-    entries.sort((a, b) => (b.affinity ?? -Infinity) - (a.affinity ?? -Infinity) || a.position - b.position);
-    const order = unique(entries.map(entry => entry.id));
-    // Kept for diagnosis: an "ok" ranking whose places did not match the options.
-    return order.length ? { guest, order } : { guest, order, failure: { status: result.status, returned: Array.isArray(result.results) ? result.results.length : 0 } };
+    return { guest, entries: entriesOf(result), returned: Array.isArray(result.results) ? result.results.length : 0, status: result.status };
   };
   // The first call warms the harness's entity cache and drops unrankable options for the rest.
   const first = await rankOne(scored[0]);
   const rest = await Promise.all(scored.slice(1).map(rankOne));
-  return buildFitMatrix(requested, [first, ...rest], unrankedNow());
+  const bases = new Set();
+  const rankings = [first, ...rest].map(item => {
+    if (!item.entries) return item;
+    const entries = item.entries.filter(entry => options.includes(entry.id));
+    const { order, basis } = liftOrder(entries);
+    bases.add(basis);
+    // Kept for diagnosis: an "ok" ranking whose places did not match the options.
+    return order.length ? { guest: item.guest, order } : { guest: item.guest, order, failure: { status: item.status, returned: item.returned } };
+  });
+  const basis = bases.has('popularity') ? 'popularity' : 'affinity';
+  return buildFitMatrix(requested, rankings, unrankedNow(), basis);
 }
 
 // matrix.order (when set) is the canonical order after saved feedback was applied.

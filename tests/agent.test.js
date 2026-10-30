@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDirectQlooWorkflowExecutor } from '../node_modules/@qloo/qloo-harness/dist/qloo-tools.js';
-import { buildTasteRecommendation, remapSignalOwners } from '../qloo-service.js';
+import { buildTasteRecommendation, remapSignalOwners, OUTING_TAGS } from '../qloo-service.js';
 import { buildFitMatrix, groupSignalInputs, scoreGroupFit } from '../group-fit.js';
 
 // Synthetic Qloo world. Only the HTTP client is replaced; resolution,
@@ -110,6 +110,24 @@ test('a place Qloo cannot rank is dropped once, remembered, and shown without a 
   assert.ok(calls.every(options => !options.includes('lost-place')), 'the unrankable place is remembered');
 });
 
+test('taste lift: guests are ranked by taste beyond popularity, so popular places stop fitting everyone', async () => {
+  const ids = ['A', 'B', 'C', 'D', 'E'];
+  const popularity = [0.99, 0.97, 0.95, 0.60, 0.55];
+  // Raw affinity follows popularity for everyone; each guest's own taste adds a small bump.
+  const bump = { g0: [0, 0, 0, 0.012, 0], g1: [0, 0, 0, 0, 0.012], g2: [0, 0, 0, 0, 0] };
+  const qloo = async (operation, input) => ({
+    status: 'ok',
+    results: ids.map((id, i) => ({ entity_id: id, popularity: popularity[i], affinity: 0.85 + 0.05 * popularity[i] + bump[input.signals[0]][i] }))
+      .filter(item => input.options.includes(item.entity_id)).sort((a, b) => b.affinity - a.affinity)
+  });
+  const guests = ['g0', 'g1', 'g2'].map((input, index) => ({ index, resolved: [{ input }] }));
+  const matrix = await scoreGroupFit({ placeIds: ids, guests, qloo });
+  assert.equal(matrix.basis, 'popularity');
+  assert.ok(matrix.places.D.fits.includes(0) && !matrix.places.D.fits.includes(1), 'D fits the guest whose taste points to it');
+  assert.ok(matrix.places.E.fits.includes(1) && !matrix.places.E.fits.includes(0));
+  assert.ok(matrix.places.A.fits.length < 3 || matrix.places.B.fits.length < 3, 'the most popular places no longer fit everyone by default');
+});
+
 test('group signals put shared favourites first and represent every guest', () => {
   const guests = [
     { resolved: ['A', 'B', 'C', 'D', 'E', 'F'].map(input => ({ input })) },
@@ -172,8 +190,9 @@ test('agent turns constraints into Qloo tags, checks group fit and returns a val
     assert.equal(query['filter.location.query'], 'Riyadh, Saudi Arabia');
     assert.ok(query['signal.interests.entities'].length <= 10);
   }
-  const tagged = recommends.find(query => query['filter.tags']);
+  const tagged = recommends.find(query => query['filter.tags']?.includes(kidsTag));
   assert.deepEqual(tagged['filter.tags'], [kidsTag], 'only tag URNs returned by Qloo are used');
+  assert.ok(recommends.some(query => OUTING_TAGS.every(tag => query['filter.tags']?.includes(tag))), 'guest candidates are limited to places a group goes out to');
   const ranks = world.calls.insights.filter(query => query['filter.results.entities']);
   assert.ok(ranks.length >= 4, 'each guest ranks the shortlist, and again after the agent adds places');
   assert.ok(ranks.every(query => query['filter.results.entities'].length <= 10));

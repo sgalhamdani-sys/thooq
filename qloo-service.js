@@ -1,13 +1,24 @@
 import { translatePreferences, callGemini } from './gemini-service.js';
 import { rankWithFeedback } from './feedback-service.js';
 import { runQloo, qlooStatus } from './qloo-workflows.js';
-import { addToPool, groupSignalInputs, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
+import { addToPool, groupSignalInputs, liftOrder, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
 import { planGathering } from './agent-service.js';
 import { bilingualError, copy, languageOf } from './copy.js';
 
 export { qlooStatus };
 
 export const MAX_SIGNALS = 60;
+// Qloo's "places" include hotels, serviced apartments and universities. Candidates
+// are limited to places a group goes out to (tag URNs returned by Qloo's tag search).
+export const OUTING_TAGS = Object.freeze([
+  'urn:tag:genre:place:restaurant', 'urn:tag:product_service:qloo:restaurant_dining', 'urn:tag:category:place:cafe',
+  'urn:tag:cuisine:qloo:dessert', 'urn:tag:category:place:park', 'urn:tag:category:place:shopping_mall'
+]);
+async function recommendOutings(qloo, input) {
+  const filtered = await qloo('recommend', { ...input, include_tags: [...OUTING_TAGS], include_tags_operator: 'union' });
+  const usable = ['ok', 'partial'].includes(filtered?.status) && Array.isArray(filtered.results) && filtered.results.length;
+  return usable || filtered?.status === 'needs_input' && filtered.resolution?.issues?.some(issue => issue?.field === 'signals') ? filtered : qloo('recommend', input);
+}
 const unique = values => [...new Set(values.filter(Boolean))];
 const clip = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 const guestLabel = index => `G${index + 1}`;
@@ -95,6 +106,11 @@ function buildShortlist(groupIds, guestLists) {
 }
 
 const resultIds = (result, pool) => (Array.isArray(result?.results) ? result.results : []).map(entity => entity?.entity_id || entity?.id).filter(id => pool.has(id));
+// Candidates in order of taste beyond popularity (see liftOrder in group-fit.js), so
+// each guest's distinctive places reach the shortlist, not only the city's most popular.
+const liftIds = (result, pool) => liftOrder((Array.isArray(result?.results) ? result.results : [])
+  .map((entity, position) => ({ id: entity?.entity_id || entity?.id, affinity: typeof entity?.affinity === 'number' ? entity.affinity : null, popularity: typeof entity?.popularity === 'number' ? entity.popularity : null, position }))
+  .filter(entry => pool.has(entry.id))).order;
 
 export async function buildTasteRecommendation(event, {
   qloo = runQloo,
@@ -131,7 +147,7 @@ export async function buildTasteRecommendation(event, {
     ...guests.filter(guest => guest.inputs.length).map(guest => ({ guest, inputs: guest.inputs, source: guestLabel(guest.index) })),
     ...Array.from({ length: Math.ceil(orphans.length / 10) }, (_, index) => ({ guest: null, inputs: orphans.slice(index * 10, index * 10 + 10), source: 'group' }))
   ];
-  const results = await Promise.all(batches.map(batch => qloo('recommend', { target_type: 'place', signals: batch.inputs, filter_location: cityQuery, explain: false, limit: 10 })));
+  const results = await Promise.all(batches.map(batch => recommendOutings(qloo, { target_type: 'place', signals: batch.inputs, filter_location: cityQuery, explain: false, limit: 20 })));
   if (results.some(result => result?.status === 'needs_input')) {
     const clarifications = clarificationsFrom(results, signals);
     if (!clarifications.length) throw bilingualError('طلب Qloo توضيحًا لم نتمكن من عرضه. لم يتم إنشاء توصية؛ حاولي مجددًا لاحقًا.', 'Qloo asked for a clarification we could not display. No plan was created; please try again later.');
@@ -156,14 +172,14 @@ export async function buildTasteRecommendation(event, {
     resolved.forEach(item => { signalLabels[item.input] = item.name; });
     (batch.guest || orphanGuest).resolved.push(...resolved);
     addToPool(pool, result.results, batch.source);
-    if (batch.guest) guestLists.push(resultIds(result, pool));
+    if (batch.guest) guestLists.push(liftIds(result, pool));
   });
 
   // 2) One combined call for the whole group's taste.
   const groupInputs = groupSignalInputs([...guests, orphanGuest]);
-  const groupResult = groupInputs.length ? await qloo('recommend', { target_type: 'place', signals: groupInputs, filter_location: cityQuery, explain: false, limit: 15 }) : undefined;
+  const groupResult = groupInputs.length ? await recommendOutings(qloo, { target_type: 'place', signals: groupInputs, filter_location: cityQuery, explain: false, limit: 20 }) : undefined;
   if (groupResult && ['ok', 'partial'].includes(groupResult.status)) addToPool(pool, groupResult.results, 'group');
-  const groupIds = resultIds(groupResult, pool);
+  const groupIds = liftIds(groupResult, pool);
   const selection = { querySignals: signals, signalLabels, signalOwners: owners };
   if (!pool.size) return { ...selection, source: 'qloo-empty', language: lang, title: c.empty.title, summary: c.empty.summary(event.city), reason: c.empty.reason, places: [] };
 
@@ -209,7 +225,7 @@ export async function buildTasteRecommendation(event, {
     considerations: outcome.plan.considerations || [],
     agent: { mode: outcome.mode, ...(outcome.failure ? { failure: outcome.failure } : {}), ...(outcome.error ? { detail: clip(outcome.error, 200) } : {}) },
     agentSteps: [...steps, ...outcome.steps],
-    groupFit: { method: finalFit.method, total: finalFit.total, guests: guests.length, ...(finalFit.failures?.length ? { failures: finalFit.failures.slice(0, 4) } : {}) },
+    groupFit: { method: finalFit.method, basis: finalFit.basis, total: finalFit.total, guests: guests.length, ...(finalFit.failures?.length ? { failures: finalFit.failures.slice(0, 4) } : {}) },
     places
   };
 }
