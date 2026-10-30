@@ -52,10 +52,11 @@ export function addToPool(pool, entities, source) {
   return added;
 }
 
-export function buildFitMatrix(options, rankings) {
+export function buildFitMatrix(options, rankings, unranked = []) {
   const valid = rankings.filter(item => Array.isArray(item.order) && item.order.length);
   const places = {};
   for (const id of options) {
+    if (unranked.includes(id)) { places[id] = { fits: [], count: 0, total: 0, score: 0, unranked: true }; continue; }
     const utilities = [];
     const fits = [];
     for (const { guest, order } of valid) {
@@ -71,12 +72,33 @@ export function buildFitMatrix(options, rankings) {
   return { method: 'per-guest-qloo-rank-v1', total: valid.length, options: [...options], places, ...(failures.length ? { failures } : {}) };
 }
 
+// Some places Qloo recommends cannot be looked up again as rank options; one such
+// option makes the whole rank call ask for input (not_found on "options") for
+// every guest. Those places are dropped from the call, remembered, and shown
+// without a fit instead of breaking the group fit for everyone.
+const unrankable = new Set();
+const missingOptions = result => result?.status === 'needs_input'
+  ? (result.resolution?.issues || []).filter(issue => issue?.field === 'options' && issue.kind === 'not_found' && typeof issue.input === 'string').map(issue => issue.input)
+  : [];
+
 export async function scoreGroupFit({ placeIds, guests, qloo }) {
-  const options = unique(placeIds).slice(0, MAX_OPTIONS);
+  const requested = unique(placeIds).slice(0, MAX_OPTIONS);
+  let options = requested.filter(id => !unrankable.has(id));
   const scored = guests.filter(guest => guest.resolved.length);
-  if (!options.length || !scored.length) return buildFitMatrix(options, []);
+  const unrankedNow = () => requested.filter(id => !options.includes(id));
+  if (!options.length || !scored.length) return buildFitMatrix(requested, [], unrankedNow());
   const rankOne = async guest => {
-    const result = await qloo('rank', { options, option_type: 'place', signals: unique(guest.resolved.map(item => item.input)).slice(0, 10) });
+    const signals = unique(guest.resolved.map(item => item.input)).slice(0, 10);
+    let result = await qloo('rank', { options, option_type: 'place', signals });
+    for (let round = 0; round < 2; round++) {
+      const missing = missingOptions(result);
+      if (!missing.length) break;
+      if (unrankable.size > 2000) unrankable.clear();
+      missing.forEach(id => unrankable.add(id));
+      options = options.filter(id => !missing.includes(id));
+      if (!options.length) break;
+      result = await qloo('rank', { options, option_type: 'place', signals });
+    }
     if (!['ok', 'partial'].includes(result?.status)) {
       const issues = (result?.resolution?.issues || []).slice(0, 3).map(issue => `${issue.kind || ''} ${issue.field || ''} ${String(issue.input || '').slice(0, 40)}`.trim());
       return { guest, order: null, failure: { status: result?.status || 'unknown', ...(result?.error?.code ? { code: String(result.error.code) } : {}), ...(issues.length ? { issues } : {}) } };
@@ -89,10 +111,10 @@ export async function scoreGroupFit({ placeIds, guests, qloo }) {
     // Kept for diagnosis: an "ok" ranking whose places did not match the options.
     return order.length ? { guest, order } : { guest, order, failure: { status: result.status, returned: Array.isArray(result.results) ? result.results.length : 0 } };
   };
-  // The first call warms the harness's entity cache for the shared options.
+  // The first call warms the harness's entity cache and drops unrankable options for the rest.
   const first = await rankOne(scored[0]);
   const rest = await Promise.all(scored.slice(1).map(rankOne));
-  return buildFitMatrix(options, [first, ...rest]);
+  return buildFitMatrix(requested, [first, ...rest], unrankedNow());
 }
 
 // matrix.order (when set) is the canonical order after saved feedback was applied.

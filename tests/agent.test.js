@@ -90,6 +90,26 @@ test('a failed per-guest ranking is left out of the fit and its reason is kept',
   assert.deepEqual(matrix.places.a.fits, [0, 2]);
 });
 
+test('a place Qloo cannot rank is dropped once, remembered, and shown without a fit', async () => {
+  const guests = [0, 1, 2].map(index => ({ index, resolved: [{ input: `taste-${index}` }] }));
+  const calls = [];
+  const qloo = async (operation, input) => {
+    calls.push(input.options);
+    if (input.options.includes('lost-place')) return { status: 'needs_input', resolution: { issues: [{ kind: 'not_found', field: 'options', input: 'lost-place' }] } };
+    return { status: 'ok', results: input.options.map(id => ({ entity_id: id })) };
+  };
+  const matrix = await scoreGroupFit({ placeIds: ['p1', 'lost-place', 'p2', 'p3'], guests, qloo });
+  assert.equal(matrix.total, 3, 'every guest is ranked');
+  assert.equal(matrix.failures, undefined);
+  assert.deepEqual(matrix.places.p1.fits, [0, 1, 2]);
+  assert.equal(matrix.places['lost-place'].total, 0, 'no misleading "0 of 3"');
+  assert.deepEqual(matrix.options, ['p1', 'lost-place', 'p2', 'p3']);
+  assert.equal(calls.length, 4, 'one retry for the first guest, then clean calls');
+  calls.length = 0;
+  await scoreGroupFit({ placeIds: ['lost-place', 'p4', 'p5'], guests, qloo });
+  assert.ok(calls.every(options => !options.includes('lost-place')), 'the unrankable place is remembered');
+});
+
 test('group signals put shared favourites first and represent every guest', () => {
   const guests = [
     { resolved: ['A', 'B', 'C', 'D', 'E', 'F'].map(input => ({ input })) },
