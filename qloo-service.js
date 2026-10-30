@@ -209,7 +209,7 @@ export async function buildTasteRecommendation(event, {
     considerations: outcome.plan.considerations || [],
     agent: { mode: outcome.mode, ...(outcome.failure ? { failure: outcome.failure } : {}), ...(outcome.error ? { detail: clip(outcome.error, 200) } : {}) },
     agentSteps: [...steps, ...outcome.steps],
-    groupFit: { method: finalFit.method, total: finalFit.total, guests: guests.length },
+    groupFit: { method: finalFit.method, total: finalFit.total, guests: guests.length, ...(finalFit.failures?.length ? { failures: finalFit.failures.slice(0, 4) } : {}) },
     places
   };
 }

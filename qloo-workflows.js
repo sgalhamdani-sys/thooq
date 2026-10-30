@@ -18,16 +18,50 @@ export function qlooStatus() {
   return { transport: 'qloo-harness-direct', baseUrl, authentication: 'environment-or-private-harness-config' };
 }
 
+// Qloo refuses bursts of requests, so at most a few calls run at once and a call
+// that comes back with an error is retried after a short pause. Failures are
+// logged (operation, code, layer) so the hosting logs show why a step was empty.
+const MAX_CONCURRENT = 3;
+const RETRY_DELAYS_MS = [1000, 2500];
+let active = 0;
+const waiting = [];
+async function inSlot(run) {
+  while (active >= MAX_CONCURRENT) await new Promise(resolve => waiting.push(resolve));
+  active++;
+  try { return await run(); } finally { active--; waiting.shift()?.(); }
+}
+const pause = (ms, signal) => new Promise(resolve => {
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener?.('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
+});
+
 // Returns the harness's normalized result envelope. Expected execution
 // failures (input validation, network, authentication) become status:error
 // envelopes so callers never have to parse provider messages.
-export async function runQloo(operation, input, { signal } = {}) {
-  executorPromise ||= loadExecutor().catch(error => { executorPromise = undefined; throw error; });
-  const executor = await executorPromise;
+async function executeOnce(executor, operation, input, signal) {
   try {
     return (await executor.execute(operation, input, signal ? { signal } : {})).result;
   } catch (error) {
     if (error?.name !== 'QlooWorkflowExecutionError') throw error;
     return { status: 'error', operation, results: [], error: { code: error.code, layer: error.layer, retryable: Boolean(error.retryable) } };
   }
+}
+
+export async function runQloo(operation, input, { signal } = {}) {
+  executorPromise ||= loadExecutor().catch(error => { executorPromise = undefined; throw error; });
+  const executor = await executorPromise;
+  let result;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    if (attempt) {
+      await pause(RETRY_DELAYS_MS[attempt - 1], signal);
+      if (signal?.aborted) break;
+    }
+    result = await inSlot(() => executeOnce(executor, operation, input, signal));
+    if (result?.status !== 'error') break;
+    console.warn(`Qloo ${operation} failed (attempt ${attempt + 1}): ${result.error?.code || 'unknown'} / ${result.error?.layer || '-'}`);
+  }
+  if (operation === 'rank' && result?.status === 'needs_input') {
+    console.warn(`Qloo rank needs input: ${(result.resolution?.issues || []).slice(0, 3).map(issue => `${issue.kind} ${issue.field || ''} ${issue.input || ''}`).join('; ')}`);
+  }
+  return result;
 }

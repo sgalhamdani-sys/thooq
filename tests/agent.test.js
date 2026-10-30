@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createDirectQlooWorkflowExecutor } from '../node_modules/@qloo/qloo-harness/dist/qloo-tools.js';
 import { buildTasteRecommendation, remapSignalOwners } from '../qloo-service.js';
-import { buildFitMatrix, groupSignalInputs } from '../group-fit.js';
+import { buildFitMatrix, groupSignalInputs, scoreGroupFit } from '../group-fit.js';
 
 // Synthetic Qloo world. Only the HTTP client is replaced; resolution,
 // validation and normalization run through the installed Qloo Harness.
@@ -75,6 +75,19 @@ test('fit matrix prefers a place everyone likes over one loved by a single guest
   assert.deepEqual(matrix.places['liked-by-all'].fits, [0, 1, 2]);
   assert.deepEqual(matrix.places['loved-by-one'].fits, [0]);
   assert.equal(matrix.total, 3);
+});
+
+test('a failed per-guest ranking is left out of the fit and its reason is kept', async () => {
+  const guests = [0, 1, 2].map(index => ({ index, resolved: [{ input: `fav-${index}` }] }));
+  const matrix = await scoreGroupFit({
+    placeIds: ['a', 'b', 'c'], guests,
+    qloo: async (operation, input) => input.signals[0] === 'fav-1'
+      ? { status: 'error', error: { code: 'QLOO_RATE_LIMITED' } }
+      : { status: 'ok', results: input.options.map(id => ({ entity_id: id })) }
+  });
+  assert.equal(matrix.total, 2);
+  assert.deepEqual(matrix.failures, [{ status: 'error', code: 'QLOO_RATE_LIMITED' }]);
+  assert.deepEqual(matrix.places.a.fits, [0, 2]);
 });
 
 test('group signals put shared favourites first and represent every guest', () => {

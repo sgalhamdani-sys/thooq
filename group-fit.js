@@ -67,7 +67,8 @@ export function buildFitMatrix(options, rankings) {
     const least = utilities.length ? Math.min(...utilities) : 0;
     places[id] = { fits, count: fits.length, total: valid.length, score: Number((0.5 * mean + 0.5 * least).toFixed(4)) };
   }
-  return { method: 'per-guest-qloo-rank-v1', total: valid.length, options: [...options], places };
+  const failures = rankings.filter(item => !(Array.isArray(item.order) && item.order.length) && item.failure).map(item => item.failure);
+  return { method: 'per-guest-qloo-rank-v1', total: valid.length, options: [...options], places, ...(failures.length ? { failures } : {}) };
 }
 
 export async function scoreGroupFit({ placeIds, guests, qloo }) {
@@ -76,12 +77,17 @@ export async function scoreGroupFit({ placeIds, guests, qloo }) {
   if (!options.length || !scored.length) return buildFitMatrix(options, []);
   const rankOne = async guest => {
     const result = await qloo('rank', { options, option_type: 'place', signals: unique(guest.resolved.map(item => item.input)).slice(0, 10) });
-    if (!['ok', 'partial'].includes(result?.status)) return { guest, order: null };
+    if (!['ok', 'partial'].includes(result?.status)) {
+      const issues = (result?.resolution?.issues || []).slice(0, 3).map(issue => `${issue.kind || ''} ${issue.field || ''} ${String(issue.input || '').slice(0, 40)}`.trim());
+      return { guest, order: null, failure: { status: result?.status || 'unknown', ...(result?.error?.code ? { code: String(result.error.code) } : {}), ...(issues.length ? { issues } : {}) } };
+    }
     const entries = (Array.isArray(result.results) ? result.results : [])
       .map((entity, position) => ({ id: entity?.entity_id || entity?.id, affinity: typeof entity?.affinity === 'number' ? entity.affinity : null, position }))
       .filter(entry => options.includes(entry.id));
     entries.sort((a, b) => (b.affinity ?? -Infinity) - (a.affinity ?? -Infinity) || a.position - b.position);
-    return { guest, order: unique(entries.map(entry => entry.id)) };
+    const order = unique(entries.map(entry => entry.id));
+    // Kept for diagnosis: an "ok" ranking whose places did not match the options.
+    return order.length ? { guest, order } : { guest, order, failure: { status: result.status, returned: Array.isArray(result.results) ? result.results.length : 0 } };
   };
   // The first call warms the harness's entity cache for the shared options.
   const first = await rankOne(scored[0]);
