@@ -247,6 +247,9 @@ export async function planGathering({ event, guests, pool, fit, shortlist, qloo,
     const fill = orderByFit(state.fit.options, state.fit).filter(id => !stopIds.includes(id));
     state.fit = await scoreGroupFit({ placeIds: [...stopIds, ...fill].slice(0, MAX_OPTIONS), guests, qloo });
   }
-  const alternatives = orderByFit(state.fit.options, state.fit).filter(id => !stopIds.includes(id)).slice(0, limits.alternatives);
+  // Close alternatives fit at least one guest when possible ("0 of 4" is not close).
+  const others = orderByFit(state.fit.options, state.fit).filter(id => !stopIds.includes(id));
+  const fitting = others.filter(id => (state.fit.places[id]?.count ?? 0) > 0);
+  const alternatives = [...fitting, ...others.filter(id => !fitting.includes(id))].slice(0, limits.alternatives);
   return { mode, failure, error: state.error, plan: state.final, alternatives, fit: state.fit, steps: state.steps };
 }
