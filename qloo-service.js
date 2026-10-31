@@ -1,4 +1,4 @@
-import { translatePreferences, callGemini } from './gemini-service.js';
+import { translatePreferences, geminiSession } from './gemini-service.js';
 import { rankWithFeedback } from './feedback-service.js';
 import { runQloo, qlooStatus } from './qloo-workflows.js';
 import { addToPool, groupSignalInputs, liftOrder, LODGING_TAGS, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
@@ -131,7 +131,7 @@ const liftIds = (result, pool) => liftOrder((Array.isArray(result?.results) ? re
 export async function buildTasteRecommendation(event, {
   qloo = runQloo,
   translate = translatePreferences,
-  generate = process.env.GEMINI_API_KEY ? body => callGemini(body, { timeoutMs: 30000, retries: 0 }) : undefined,
+  generate = process.env.GEMINI_API_KEY ? geminiSession({ timeoutMs: 30000, retries: 0 }) : undefined,
   plan = planGathering
 } = {}) {
   const previous = event.recommendation;
