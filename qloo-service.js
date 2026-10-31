@@ -1,7 +1,7 @@
 import { translatePreferences, callGemini } from './gemini-service.js';
 import { rankWithFeedback } from './feedback-service.js';
 import { runQloo, qlooStatus } from './qloo-workflows.js';
-import { addToPool, groupSignalInputs, liftOrder, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
+import { addToPool, groupSignalInputs, liftOrder, LODGING_TAGS, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
 import { planGathering } from './agent-service.js';
 import { bilingualError, copy, languageOf } from './copy.js';
 
@@ -15,7 +15,7 @@ export const OUTING_TAGS = Object.freeze([
   'urn:tag:cuisine:qloo:dessert', 'urn:tag:category:place:park', 'urn:tag:category:place:shopping_mall'
 ]);
 async function recommendOutings(qloo, input) {
-  const filtered = await qloo('recommend', { ...input, include_tags: [...OUTING_TAGS], include_tags_operator: 'union' });
+  const filtered = await qloo('recommend', { ...input, include_tags: [...OUTING_TAGS], include_tags_operator: 'union', exclude_tags: [...LODGING_TAGS], exclude_tags_operator: 'union' });
   const usable = ['ok', 'partial'].includes(filtered?.status) && Array.isArray(filtered.results) && filtered.results.length;
   return usable || filtered?.status === 'needs_input' && filtered.resolution?.issues?.some(issue => issue?.field === 'signals') ? filtered : qloo('recommend', input);
 }

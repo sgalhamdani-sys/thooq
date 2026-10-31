@@ -4,7 +4,7 @@
 // guest. The server owns the tools: it pins the city, only accepts tag URNs
 // that Qloo returned, only accepts places that tools returned, and computes
 // group fit itself, so the model cannot invent places or fit numbers.
-import { addToPool, groupSignalInputs, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
+import { addToPool, groupSignalInputs, LODGING_TAGS, MAX_OPTIONS, orderByFit, scoreGroupFit } from './group-fit.js';
 import { copy } from './copy.js';
 
 export const AGENT_LIMITS = Object.freeze({ turns: 7, deadlineMs: 75000, tagCalls: 2, searches: 2, fitChecks: 2, stops: 3, alternatives: 3 });
@@ -128,7 +128,9 @@ async function runTool(call, context) {
       const purpose = clip(args.purpose, 80) || 'group outing';
       const input = { target_type: 'place', signals: groupSignalInputs(guests), filter_location: cityQuery, explain: false, limit: 10 };
       if (include.length) input.include_tags = include;
-      if (exclude.length) input.exclude_tags = exclude;
+      // Lodging is always excluded; the model may exclude more.
+      input.exclude_tags = [...new Set([...exclude, ...LODGING_TAGS])].slice(0, 10);
+      input.exclude_tags_operator = 'union';
       if (signalTags.length) input.signal_tags = signalTags;
       const result = await qloo('recommend', input);
       if (!['ok', 'partial', 'empty'].includes(result?.status)) {

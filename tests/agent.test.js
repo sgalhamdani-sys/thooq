@@ -193,6 +193,7 @@ test('agent turns constraints into Qloo tags, checks group fit and returns a val
   const tagged = recommends.find(query => query['filter.tags']?.includes(kidsTag));
   assert.deepEqual(tagged['filter.tags'], [kidsTag], 'only tag URNs returned by Qloo are used');
   assert.ok(recommends.some(query => OUTING_TAGS.every(tag => query['filter.tags']?.includes(tag))), 'guest candidates are limited to places a group goes out to');
+  assert.ok(recommends.every(query => ['urn:tag:category:place:hotel', 'urn:tag:genre:place:apartment'].every(tag => query['filter.exclude.tags']?.includes(tag))), 'hotels and serviced apartments are excluded from every search');
   const ranks = world.calls.insights.filter(query => query['filter.results.entities']);
   assert.ok(ranks.length >= 4, 'each guest ranks the shortlist, and again after the agent adds places');
   assert.ok(ranks.every(query => query['filter.results.entities'].length <= 10));

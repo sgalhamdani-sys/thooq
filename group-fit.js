@@ -4,6 +4,9 @@
 // Positions are turned into a 0–1 utility per guest and combined with a
 // hybrid of the classic "average" and "least misery" group strategies, so a
 // place loved by one guest and disliked by the others does not win.
+// Hotels and serviced apartments carry restaurant tags too, so they are excluded
+// from every place search (tag URNs returned by Qloo's tag search).
+export const LODGING_TAGS = Object.freeze(['urn:tag:category:place:hotel', 'urn:tag:genre:place:hotel', 'urn:tag:category:place:apartment', 'urn:tag:genre:place:apartment']);
 export const FIT_SHARE = 0.4;      // top 40% of a guest's ranking counts as a fit
 export const MAX_OPTIONS = 10;     // Qloo rank accepts at most ten options
 
