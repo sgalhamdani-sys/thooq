@@ -34,8 +34,24 @@ test('guests check their own favourites: a match, a choice, a miss and an outage
   assert.equal(items[0].text, 'كولدبلاي', "the guest's own words are kept");
   assert.equal(items[0].match.id, 'id-coldplay');
   assert.deepEqual(items[1].candidates.map(item => [item.id, item.releaseYear]), [['tv', 1994], ['film', undefined]]);
+  assert.equal(items[1].suggested, 'tv', 'the closest match for the question is pre-selected');
   const fallback = await checkFavourites(['فيروز'], { translate: async () => { throw new Error('no Gemini'); }, qloo: async (operation, input) => ({ status: 'ok', interpretation: { entity: { entityId: 'x', name: input.entity } } }) });
   assert.equal(fallback[0].query, 'فيروز', 'without translation the words are searched as typed');
+});
+
+test('the closest match is suggested per question, duplicates and unrelated names are dropped', async () => {
+  const result = candidates => ({ status: 'needs_input', resolution: { issues: [{ kind: 'ambiguous', candidates }] } });
+  const replies = {
+    Coldplay: result([{ id: 'album', name: 'Coldplay', type: 'urn:entity:album' }, { id: 'artist', name: 'Coldplay', type: 'urn:entity:artist' }, { id: 'album2', name: 'Coldplay', type: 'urn:entity:album' }]),
+    Starbucks: result([{ id: 'branch1', name: 'Starbucks', type: 'urn:entity:place' }, { id: 'brand', name: 'Starbucks', type: 'urn:entity:brand' }, { id: 'branch2', name: 'Starbucks', type: 'urn:entity:place' }]),
+    'zzqq unknown': result([{ id: 'u', name: 'Unknown Pleasures', type: 'urn:entity:album' }])
+  };
+  const items = await checkFavourites(['Coldplay', 'Starbucks', 'zzqq unknown'], { translate: async values => values, groups: [0, 1, 0], qloo: async (operation, input) => replies[input.entity] });
+  assert.equal(items[0].suggested, 'artist');
+  assert.deepEqual(items[0].candidates.map(item => item.id), ['artist', 'album']);
+  assert.equal(items[1].suggested, 'brand');
+  assert.deepEqual(items[1].candidates.map(item => item.id), ['brand', 'branch1']);
+  assert.equal(items[2].status, 'missing');
 });
 
 test('the host never sees private favourites; shared ones appear; the invitation link is not the host', async () => {

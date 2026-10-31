@@ -11,7 +11,7 @@ import { createDemoEvent, loadDemoResolution, pruneDemoEvents } from './demo.js'
 import { runQloo } from './qloo-workflows.js';
 import { checkFavourites, cleanResolved, MAX_CHECK_ITEMS, validResolved } from './guest-check.js';
 
-export function createThooqServer({ root = dirname(fileURLToPath(import.meta.url)), dataDirectory = process.env.DATA_DIRECTORY || join(root, 'data'), recommend = buildTasteRecommendation, demoResolution = () => loadDemoResolution({ qloo: runQloo }), check = texts => checkFavourites(texts) } = {}) {
+export function createThooqServer({ root = dirname(fileURLToPath(import.meta.url)), dataDirectory = process.env.DATA_DIRECTORY || join(root, 'data'), recommend = buildTasteRecommendation, demoResolution = () => loadDemoResolution({ qloo: runQloo }), check = (texts, groups) => checkFavourites(texts, { groups }) } = {}) {
 const mimeTypes = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 const demoEvent = {
@@ -185,7 +185,9 @@ async function api(request, response, url) {
     const input = await requestBody(request);
     const texts = Array.isArray(input?.items) ? input.items : null;
     if (!texts || !texts.length || texts.length > MAX_CHECK_ITEMS || texts.some(text => typeof text !== 'string' || !text.trim() || text.length > 100)) throw fail(400, 'أرسلي من مفضلة إلى ست مفضلات للتحقق.');
-    return send(response, 200, { items: await check(texts) });
+    // Which question each favourite answers (0: shows and music, 1: places and brands).
+    const groups = Array.isArray(input.groups) ? texts.map((_, index) => input.groups[index] === 1 ? 1 : 0) : [];
+    return send(response, 200, { items: await check(texts, groups) });
   }
   if (request.method === 'POST' && segments.length === 4 && segments[3] === 'answers') {
     const answer = await requestBody(request);

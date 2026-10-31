@@ -250,7 +250,7 @@
   // Every favourite is checked with Qloo; the guest picks what they meant.
   const typeLabel = type => { const key = `type.${String(type || '').split(':').pop()}`; const label = t(key); return label === key ? '' : label; };
   const describe = item => [item.name, typeLabel(item.type), item.releaseYear, item.detail].filter(Boolean).join(' · ');
-  const prepare = item => ({ ...item, choice: item.status === 'ok' ? item.match.id : item.status === 'choose' ? null : 'skip' });
+  const prepare = (item, group) => ({ ...item, group, choice: item.status === 'ok' ? item.match.id : item.status === 'choose' ? item.suggested || null : 'skip' });
   let checked = [];
   let collected;
   const showConfirmError = message => { confirmError.textContent = message; confirmError.hidden = false; };
@@ -258,7 +258,7 @@
   const renderItem = (item, index) => {
     let body;
     if (item.status === 'ok') body = `<p class="confirm-hint">${escapeHtml(t('guest.confirm.found'))}</p>${option(index, item.match.id, describe(item.match), item.choice === item.match.id)}${option(index, 'skip', t('guest.confirm.notThis'), item.choice === 'skip')}`;
-    else if (item.status === 'choose') body = `<p class="confirm-hint">${escapeHtml(t('guest.confirm.pick'))}</p>${item.candidates.map(candidate => option(index, candidate.id, describe(candidate), item.choice === candidate.id)).join('')}${option(index, 'skip', t('guest.confirm.none'), item.choice === 'skip')}`;
+    else if (item.status === 'choose') body = `<p class="confirm-hint">${escapeHtml(t(item.suggested ? 'guest.confirm.suggested' : 'guest.confirm.pick'))}</p>${item.candidates.map(candidate => option(index, candidate.id, describe(candidate), item.choice === candidate.id)).join('')}${option(index, 'skip', t('guest.confirm.none'), item.choice === 'skip')}`;
     else body = `<p class="confirm-hint">${escapeHtml(t(item.status === 'error' ? 'guest.confirm.failed' : 'guest.confirm.missing'))}</p><div class="confirm-retry"><input type="text" maxlength="100" dir="auto" value="${escapeHtml(item.text)}" data-retry="${index}" aria-label="${escapeHtml(item.text)}"><button type="button" class="button button-quiet" data-retry-button="${index}">${escapeHtml(t('guest.confirm.retry'))}</button></div>${option(index, 'skip', t('guest.confirm.leave'), true)}`;
     return `<li class="confirm-item is-${escapeHtml(item.status)}"><p class="confirm-text"><bdi>${escapeHtml(item.text)}</bdi></p>${body}</li>`;
   };
@@ -272,8 +272,8 @@
     if (!text) return;
     button.disabled = true; button.textContent = t('guest.confirm.searching');
     try {
-      const { items } = await api(`/api/events/${eventId}/check`, { method: 'POST', body: JSON.stringify({ items: [text] }) });
-      checked[index] = prepare(items[0]);
+      const { items } = await api(`/api/events/${eventId}/check`, { method: 'POST', body: JSON.stringify({ items: [text], groups: [checked[index].group] }) });
+      checked[index] = prepare(items[0], checked[index].group);
       renderConfirm();
     } catch (error) { showConfirmError(error.message); button.disabled = false; button.textContent = t('guest.confirm.retry'); }
   };
@@ -287,8 +287,8 @@
     collected = { name, answers };
     next.disabled = true; next.textContent = t('guest.checking');
     try {
-      const { items } = await api(`/api/events/${eventId}/check`, { method: 'POST', body: JSON.stringify({ items: [...answers[0], ...answers[1]] }) });
-      checked = items.map(prepare);
+      const { items } = await api(`/api/events/${eventId}/check`, { method: 'POST', body: JSON.stringify({ items: [...answers[0], ...answers[1]], groups: [0, 0, 0, 1, 1, 1] }) });
+      checked = items.map((item, index) => prepare(item, index < 3 ? 0 : 1));
       renderConfirm();
       confirmError.hidden = true;
       quiz.style.display = 'none'; intro.style.display = 'none'; confirmBox.hidden = false;

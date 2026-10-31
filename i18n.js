@@ -118,6 +118,11 @@
     'type.place': ['مكان', 'place'],
     'type.brand': ['علامة تجارية', 'brand'],
     'type.podcast': ['بودكاست', 'podcast'],
+    'type.album': ['ألبوم', 'album'],
+    'type.author': ['كاتب', 'author'],
+    'type.videogame': ['لعبة فيديو', 'video game'],
+    'type.destination': ['وجهة', 'destination'],
+    'type.locality': ['مدينة أو حي', 'city or area'],
 
     // Guest
     'guest.docTitle': ['شاركينا ذوقك — ذَوق', 'Share your taste — Thooq'],
@@ -157,6 +162,7 @@
     'guest.confirm.text': ['هذا ما وجده Qloo لكل مفضلة. اختاري المقصود، أو صححي الاسم، أو اتركيها.', 'This is what Qloo found for each favourite. Pick the one you meant, correct the name, or leave it out.'],
     'guest.confirm.found': ['وجدناها في Qloo', 'Found in Qloo'],
     'guest.confirm.pick': ['أي واحدة تقصدين؟', 'Which one do you mean?'],
+    'guest.confirm.suggested': ['اخترنا الأقرب. غيّريها إن كنتِ تقصدين غيرها.', 'We picked the closest match. Change it if you meant another one.'],
     'guest.confirm.missing': ['لم نجدها في Qloo. صححي الاسم وابحثي مجددًا، أو اتركيها.', 'Not found in Qloo. Correct the name and search again, or leave it out.'],
     'guest.confirm.failed': ['تعذر البحث الآن. ابحثي مجددًا أو اتركيها.', 'The search didn\'t work just now. Search again or leave it out.'],
     'guest.confirm.notThis': ['ليست هذه، اتركيها', 'Not this one, leave it out'],

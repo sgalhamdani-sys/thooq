@@ -14,7 +14,33 @@ const candidateOf = candidate => ({
   detail: clip(typeof candidate.description === 'string' ? candidate.description : typeof candidate.address === 'string' ? candidate.address : '', 140)
 });
 
-export async function checkFavourites(texts, { qloo = runQloo, translate = translatePreferences } = {}) {
+// Qloo often returns several entities with the same name (an artist, an album, a
+// person; a brand and its branches). The closest one for the question is
+// suggested, so the guest only confirms or changes it: question 1 is about
+// shows, music and films, question 2 about places and brands.
+const TYPE_ORDER = [
+  ['tv_show', 'movie', 'artist', 'podcast', 'book', 'videogame', 'album', 'person', 'author'],
+  ['brand', 'place', 'destination', 'locality']
+];
+const typeKey = type => String(type || '').split(':').pop();
+const plain = value => String(value || '').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}]/gu, '');
+export function rankCandidates(candidates, query, group = 0) {
+  const wanted = plain(query);
+  const order = TYPE_ORDER[group === 1 ? 1 : 0];
+  const typeRank = candidate => { const index = order.indexOf(typeKey(candidate.type)); return index < 0 ? order.length + 1 : index; };
+  const nameRank = candidate => {
+    const name = plain(candidate.name);
+    if (name === wanted) return 0;
+    return wanted.length >= 3 && name.length >= 3 && (name.includes(wanted) || wanted.includes(name)) ? 1 : 2;
+  };
+  const seen = new Set();
+  return candidates.map((candidate, index) => ({ candidate, index, name: nameRank(candidate), type: typeRank(candidate) }))
+    .sort((a, b) => a.name - b.name || a.type - b.type || a.index - b.index)
+    .filter(({ candidate }) => { const key = `${plain(candidate.name)}|${typeKey(candidate.type)}`; if (seen.has(key)) return false; seen.add(key); return true; })
+    .map(({ candidate, name }) => ({ candidate, close: name < 2 }));
+}
+
+export async function checkFavourites(texts, { qloo = runQloo, translate = translatePreferences, groups = [] } = {}) {
   const originals = texts.map(text => clip(text, 100));
   // Arabic or misspelt names are normalised to English first; if that fails the
   // guest's own words are searched as typed.
@@ -33,10 +59,12 @@ export async function checkFavourites(texts, { qloo = runQloo, translate = trans
       const id = entity?.entityId || first?.entity_id;
       if (typeof id === 'string') return { text, query, status: 'ok', match: { id, name: clip(entity?.name || first?.name || query, 120), type: entity?.type || first?.type || '' } };
     }
-    const candidates = result?.status === 'needs_input'
-      ? (result.resolution?.issues?.[0]?.candidates || []).filter(candidate => typeof candidate?.id === 'string' && typeof candidate?.name === 'string').slice(0, 6).map(candidateOf)
+    const ranked = result?.status === 'needs_input'
+      ? rankCandidates((result.resolution?.issues?.[0]?.candidates || []).filter(candidate => typeof candidate?.id === 'string' && typeof candidate?.name === 'string'), query, groups[index])
       : [];
-    if (candidates.length) return { text, query, status: 'choose', candidates };
+    // Only names that look like what the guest typed are offered; nothing close means not found.
+    const candidates = ranked.filter(entry => entry.close).slice(0, 4).map(entry => candidateOf(entry.candidate));
+    if (candidates.length) return { text, query, status: 'choose', suggested: candidates[0].id, candidates };
     return { text, query, status: result?.status === 'error' ? 'error' : 'missing' };
   }));
 }
