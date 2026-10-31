@@ -37,7 +37,7 @@ export function rankCandidates(candidates, query, group = 0) {
   return candidates.map((candidate, index) => ({ candidate, index, name: nameRank(candidate), type: typeRank(candidate) }))
     .sort((a, b) => a.name - b.name || a.type - b.type || a.index - b.index)
     .filter(({ candidate }) => { const key = `${plain(candidate.name)}|${typeKey(candidate.type)}`; if (seen.has(key)) return false; seen.add(key); return true; })
-    .map(({ candidate, name }) => ({ candidate, close: name < 2 }));
+    .map(({ candidate, name }) => ({ candidate, exact: name === 0, close: name < 2 }));
 }
 
 export async function checkFavourites(texts, { qloo = runQloo, translate = translatePreferences, groups = [] } = {}) {
@@ -62,9 +62,11 @@ export async function checkFavourites(texts, { qloo = runQloo, translate = trans
     const ranked = result?.status === 'needs_input'
       ? rankCandidates((result.resolution?.issues?.[0]?.candidates || []).filter(candidate => typeof candidate?.id === 'string' && typeof candidate?.name === 'string'), query, groups[index])
       : [];
-    // Only names that look like what the guest typed are offered; nothing close means not found.
-    const candidates = ranked.filter(entry => entry.close).slice(0, 4).map(entry => candidateOf(entry.candidate));
-    if (candidates.length) return { text, query, status: 'choose', suggested: candidates[0].id, candidates };
+    // Only names that look like what the guest typed are offered; nothing close means
+    // not found. A match is pre-selected only when the name is exactly what was typed.
+    const close = ranked.filter(entry => entry.close).slice(0, 4);
+    const candidates = close.map(entry => candidateOf(entry.candidate));
+    if (candidates.length) return { text, query, status: 'choose', ...(close[0].exact ? { suggested: candidates[0].id } : {}), candidates };
     return { text, query, status: result?.status === 'error' ? 'error' : 'missing' };
   }));
 }

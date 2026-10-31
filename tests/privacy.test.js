@@ -44,14 +44,17 @@ test('the closest match is suggested per question, duplicates and unrelated name
   const replies = {
     Coldplay: result([{ id: 'album', name: 'Coldplay', type: 'urn:entity:album' }, { id: 'artist', name: 'Coldplay', type: 'urn:entity:artist' }, { id: 'album2', name: 'Coldplay', type: 'urn:entity:album' }]),
     Starbucks: result([{ id: 'branch1', name: 'Starbucks', type: 'urn:entity:place' }, { id: 'brand', name: 'Starbucks', type: 'urn:entity:brand' }, { id: 'branch2', name: 'Starbucks', type: 'urn:entity:place' }]),
-    'zzqq unknown': result([{ id: 'u', name: 'Unknown Pleasures', type: 'urn:entity:album' }])
+    'zzqq unknown': result([{ id: 'u', name: 'Unknown Pleasures', type: 'urn:entity:album' }]),
+    'zzqqxx unknown': result([{ id: 'v', name: '<Unknown>', type: 'urn:entity:album' }])
   };
-  const items = await checkFavourites(['Coldplay', 'Starbucks', 'zzqq unknown'], { translate: async values => values, groups: [0, 1, 0], qloo: async (operation, input) => replies[input.entity] });
+  const items = await checkFavourites(['Coldplay', 'Starbucks', 'zzqq unknown', 'zzqqxx unknown'], { translate: async values => values, groups: [0, 1, 0, 0], qloo: async (operation, input) => replies[input.entity] });
   assert.equal(items[0].suggested, 'artist');
   assert.deepEqual(items[0].candidates.map(item => item.id), ['artist', 'album']);
   assert.equal(items[1].suggested, 'brand');
   assert.deepEqual(items[1].candidates.map(item => item.id), ['brand', 'branch1']);
   assert.equal(items[2].status, 'missing');
+  assert.equal(items[3].status, 'choose', 'a partial name match is offered');
+  assert.equal(items[3].suggested, undefined, 'but never pre-selected');
 });
 
 test('the host never sees private favourites; shared ones appear; the invitation link is not the host', async () => {
