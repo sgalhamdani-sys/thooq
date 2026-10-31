@@ -2,15 +2,16 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { buildTasteRecommendation, MAX_SIGNALS, qlooStatus } from './qloo-service.js';
 import { createEventStore } from './event-store.js';
 import { attachRecommendationShare, feedbackSummary, findSharedRecommendation, publicSharedRecommendation, recordFeedback } from './feedback-service.js';
 import { languageOf, messageFor } from './copy.js';
 import { createDemoEvent, loadDemoResolution, pruneDemoEvents } from './demo.js';
 import { runQloo } from './qloo-workflows.js';
+import { checkFavourites, cleanResolved, MAX_CHECK_ITEMS, validResolved } from './guest-check.js';
 
-export function createThooqServer({ root = dirname(fileURLToPath(import.meta.url)), dataDirectory = process.env.DATA_DIRECTORY || join(root, 'data'), recommend = buildTasteRecommendation, demoResolution = () => loadDemoResolution({ qloo: runQloo }) } = {}) {
+export function createThooqServer({ root = dirname(fileURLToPath(import.meta.url)), dataDirectory = process.env.DATA_DIRECTORY || join(root, 'data'), recommend = buildTasteRecommendation, demoResolution = () => loadDemoResolution({ qloo: runQloo }), check = texts => checkFavourites(texts) } = {}) {
 const mimeTypes = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml' };
 
 const demoEvent = {
@@ -52,6 +53,35 @@ function send(response, status, payload) {
   response.end(JSON.stringify(payload));
 }
 
+// Privacy: guests confirm their own favourites, and the host sees who replied
+// and the plan, never a guest's favourites unless that guest chose to share them.
+// The host proves it is the host with the private key returned when the
+// gathering was created (X-Thooq-Host header); the invitation link has no key.
+const newHostKey = () => randomBytes(18).toString('hex');
+function isHost(event, request) {
+  if (!event.hostKey) return true; // gatherings created before host keys existed
+  const given = Buffer.from(String(request.headers['x-thooq-host'] || ''));
+  const expected = Buffer.from(event.hostKey);
+  return given.length === expected.length && timingSafeEqual(given, expected);
+}
+
+function hostAnswer(answer) {
+  const shared = answer.shareWithHost === true;
+  return {
+    name: answer.name, createdAt: answer.createdAt, shareWithHost: shared,
+    ...(Array.isArray(answer.resolved) ? { recognised: answer.resolved.length } : {}),
+    ...(shared && Array.isArray(answer.resolved) ? { favourites: answer.resolved.map(item => item.name).slice(0, 6) } : {})
+  };
+}
+
+// The plan without the favourites behind it. A name review is kept whole: it
+// only happens for replies saved before guests confirmed their own favourites.
+function hostRecommendation(recommendation) {
+  if (!recommendation || recommendation.source === 'qloo-needs-input' || recommendation.signals) return recommendation;
+  const { querySignals, signalLabels, signalOwners, ...rest } = recommendation;
+  return rest;
+}
+
 function publicEvent(event) {
   return {
     id: event.id,
@@ -63,14 +93,21 @@ function publicEvent(event) {
     language: languageOf(event.language),
     demo: Boolean(event.demo),
     answerCount: event.answers.length,
-    answers: event.answers.map(({ name, createdAt }) => ({ name, createdAt })),
-    recommendation: event.recommendation,
+    answers: event.answers.map(hostAnswer),
+    recommendation: hostRecommendation(event.recommendation),
     feedback: feedbackSummary(event.recommendationHistory?.find(item => item.id === event.recommendation?.id))
   };
 }
 
+// What anyone with the invitation link may see.
+function guestEvent(event) {
+  return { id: event.id, occasion: event.occasion, city: event.city, language: languageOf(event.language), demo: Boolean(event.demo) };
+}
+
 function validAnswer(answer) {
-  return typeof answer?.name === 'string' && answer.name.trim().length > 0 && Array.isArray(answer.answers) && answer.answers.length === 3 && answer.answers.every((group) => Array.isArray(group) && group.length === 3 && group.every((item) => typeof item === 'string' && item.trim().length > 0));
+  return typeof answer?.name === 'string' && answer.name.trim().length > 0 && Array.isArray(answer.answers) && answer.answers.length === 3 && answer.answers.every((group) => Array.isArray(group) && group.length === 3 && group.every((item) => typeof item === 'string' && item.trim().length > 0))
+    && (answer.resolved === undefined || validResolved(answer.resolved))
+    && (answer.shareWithHost === undefined || typeof answer.shareWithHost === 'boolean');
 }
 
 async function api(request, response, url) {
@@ -112,23 +149,23 @@ async function api(request, response, url) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw fail(400, 'تفاصيل العزيمة غير صالحة.');
     const id = randomUUID().slice(0, 8);
     const event = await store.update(events => {
-      events[id] = { id, occasion: String(input.occasion || 'لَمّة جديدة').slice(0, 80), city: String(input.city || 'الرياض').slice(0, 80), guestRange: String(input.guestRange || '٥–٨'), ageGroups: Array.isArray(input.ageGroups) ? input.ageGroups.filter(value => typeof value === 'string').slice(0, 4) : [], note: String(input.note || '').slice(0, 300), language: languageOf(input.language), createdAt: new Date().toISOString(), answers: [], recommendation: null };
-      return publicEvent(events[id]);
+      events[id] = { id, hostKey: newHostKey(), occasion: String(input.occasion || 'لَمّة جديدة').slice(0, 80), city: String(input.city || 'الرياض').slice(0, 80), guestRange: String(input.guestRange || '٥–٨'), ageGroups: Array.isArray(input.ageGroups) ? input.ageGroups.filter(value => typeof value === 'string').slice(0, 4) : [], note: String(input.note || '').slice(0, 300), language: languageOf(input.language), createdAt: new Date().toISOString(), answers: [], recommendation: null };
+      return { event: publicEvent(events[id]), hostKey: events[id].hostKey };
     });
-    return send(response, 201, { event });
+    return send(response, 201, event);
   }
 
   // "Try the demo": a private copy of the demo gathering for each visitor.
   if (request.method === 'POST' && url.pathname === '/api/demo') {
     const input = await requestBody(request);
     const resolved = await demoResolution();
-    const demo = createDemoEvent(input?.lang, resolved);
+    const demo = { ...createDemoEvent(input?.lang, resolved), hostKey: newHostKey() };
     const event = await store.update(events => {
       pruneDemoEvents(events);
       events[demo.id] = demo;
       return publicEvent(demo);
     });
-    return send(response, 201, { event });
+    return send(response, 201, { event, hostKey: demo.hostKey });
   }
 
   if (segments[1] !== 'events') throw fail(404, 'المسار غير موجود.');
@@ -136,6 +173,7 @@ async function api(request, response, url) {
   const eventId = segments[2];
   const event = getEvent(events, eventId);
   if (request.method === 'GET' && segments.length === 3) {
+    if (!isHost(event, request)) return send(response, 200, { event: guestEvent(event) });
     // Give recommendations saved before this feature a share link on first load.
     const ready = event.recommendation?.source === 'qloo' && event.recommendation.places?.length;
     const publicValue = ready && !findSharedRecommendation(events, event.recommendation.shareToken)
@@ -143,18 +181,30 @@ async function api(request, response, url) {
       : publicEvent(event);
     return send(response, 200, { event: publicValue, qloo: qlooStatus() });
   }
+  if (request.method === 'POST' && segments.length === 4 && segments[3] === 'check') {
+    const input = await requestBody(request);
+    const texts = Array.isArray(input?.items) ? input.items : null;
+    if (!texts || !texts.length || texts.length > MAX_CHECK_ITEMS || texts.some(text => typeof text !== 'string' || !text.trim() || text.length > 100)) throw fail(400, 'أرسلي من مفضلة إلى ست مفضلات للتحقق.');
+    return send(response, 200, { items: await check(texts) });
+  }
   if (request.method === 'POST' && segments.length === 4 && segments[3] === 'answers') {
     const answer = await requestBody(request);
     if (!validAnswer(answer)) return send(response, 400, { error: 'أضيفي اسمك وثلاث مفضلات في كل سؤال.' });
     const updated = await store.update(current => {
       const latest = getEvent(current, eventId);
-      latest.answers.push({ id: randomUUID(), name: answer.name.trim().slice(0, 50), answers: answer.answers.map((group) => group.map((item) => item.trim().slice(0, 100))), createdAt: new Date().toISOString() });
+      latest.answers.push({
+        id: randomUUID(), name: answer.name.trim().slice(0, 50), answers: answer.answers.map((group) => group.map((item) => item.trim().slice(0, 100))),
+        ...(Array.isArray(answer.resolved) ? { resolved: cleanResolved(answer.resolved) } : {}),
+        shareWithHost: answer.shareWithHost === true, createdAt: new Date().toISOString()
+      });
       latest.recommendation = null;
-      return publicEvent(latest);
+      // A guest gets the invitation back, never the other replies or the plan.
+      return guestEvent(latest);
     });
     return send(response, 201, { event: updated });
   }
   if (request.method === 'POST' && segments.length === 4 && segments[3] === 'recommendation') {
+    if (!isHost(event, request)) throw fail(403, 'هذه الصفحة لصاحبة العزيمة فقط. افتحيها من رابطك الخاص.');
     if (!event.answers.length) return send(response, 400, { error: 'نحتاج إجابة ضيف واحد على الأقل قبل بناء التوصية.' });
     const input = await requestBody(request);
     if (!input || typeof input !== 'object' || Array.isArray(input) || (input.lang !== undefined && typeof input.lang !== 'string') || (input.signals !== undefined && (!Array.isArray(input.signals) || !input.signals.length || input.signals.length > MAX_SIGNALS || input.signals.some(value => typeof value !== 'string' || !value.trim() || value.length > 200)))) return send(response, 400, { error: 'راجعي المفضلات المحددة وأبقي مفضلة واحدة على الأقل.' });
@@ -167,7 +217,7 @@ async function api(request, response, url) {
         if (JSON.stringify(latest.answers) !== JSON.stringify(event.answers)) throw fail(409, 'وصلت إجابات جديدة أثناء البحث. حدّثي التوصية لتشملها.');
         latest.recommendation = recommendation;
         attachRecommendationShare(latest);
-        return { recommendation: latest.recommendation, feedback: publicEvent(latest).feedback };
+        return { recommendation: hostRecommendation(latest.recommendation), feedback: publicEvent(latest).feedback };
       });
       return send(response, 200, saved);
     } finally { generating.delete(eventId); }

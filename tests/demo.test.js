@@ -113,8 +113,8 @@ test('the demo endpoint creates private copies and errors follow the visitor lan
   const server = createThooqServer({ dataDirectory: directory, demoResolution: async () => resolved, recommend: event => buildTasteRecommendation(event, { qloo, generate: null }) });
   server.listen(0, '127.0.0.1'); await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;
-  const call = async (path, { method = 'GET', body, lang } = {}) => {
-    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(lang ? { 'X-Thooq-Lang': lang } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+  const call = async (path, { method = 'GET', body, lang, host } = {}) => {
+    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(lang ? { 'X-Thooq-Lang': lang } : {}), ...(host ? { 'X-Thooq-Host': host } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
     return { status: response.status, data: await response.json() };
   };
   try {
@@ -124,7 +124,8 @@ test('the demo endpoint creates private copies and errors follow the visitor lan
     assert.notEqual(first.data.event.id, second.data.event.id);
     assert.equal(first.data.event.demo, true);
     assert.equal(first.data.event.answerCount, 4);
-    const plan = await call(`/api/events/${first.data.event.id}/recommendation`, { method: 'POST', body: { lang: 'en' } });
+    assert.equal((await call(`/api/events/${first.data.event.id}/recommendation`, { method: 'POST', body: { lang: 'en' } })).status, 403);
+    const plan = await call(`/api/events/${first.data.event.id}/recommendation`, { method: 'POST', body: { lang: 'en' }, host: first.data.hostKey });
     assert.equal(plan.status, 200);
     assert.equal(plan.data.recommendation.language, 'en');
     assert.equal((await call('/api/events/missing', { lang: 'en' })).data.error, 'We could not find this gathering.');

@@ -48,9 +48,10 @@ const AR = {
     fallback: 'لم يكتمل عمل الوكيل هذه المرة، فعُرض الترتيب الحسابي لملاءمة المجموعة بدلًا منه.'
   },
   plan: {
+    privateTaste: 'إحدى مفضلات الضيوف',
     defaultTitle: city => `لمّة في ${city}`,
     defaultSummary: (occasion, city) => `خطة لمناسبة «${occasion}» في ${city}.`,
-    reason: (labels, feedback) => `استخدم ذَوق مفضلات كل ضيف كإشارات ذوق في Qloo: ${labels.join('، ')}. ثم رتّب كل مكان حسب ذوق كل ضيف على حدة، وفضّل ما يناسب أكبر عدد دون إهمال أحد${feedback ? ' وأخذ في الحسبان تقييمات التوصيات السابقة ذات المفضلات المتشابهة' : ''}. ملاءمة العمر والميزانية والطعام وساعات العمل تحتاج تأكيدًا من المكان.`,
+    reason: (labels, feedback, kept = 0) => `${labels.length ? `استخدم ذَوق مفضلات كل ضيف كإشارات ذوق في Qloo: ${labels.join('، ')}${kept ? `، و${new Intl.NumberFormat('ar-SA').format(kept)} من المفضلات الأخرى بقيت خاصة بأصحابها` : ''}.` : 'استخدم ذَوق مفضلات كل ضيف كإشارات ذوق في Qloo، وتبقى المفضلات خاصة بأصحابها.'} ثم رتّب كل مكان حسب ذوق كل ضيف على حدة، وفضّل ما يناسب أكبر عدد دون إهمال أحد${feedback ? ' وأخذ في الحسبان تقييمات التوصيات السابقة ذات المفضلات المتشابهة' : ''}. ملاءمة العمر والميزانية والطعام وساعات العمل تحتاج تأكيدًا من المكان.`,
     fallbackTitle: city => `لمّة على ذوق الجميع في ${city}`,
     fallbackConcept: city => `رتّبنا أماكن ${city} حسب قربها من ذوق كل ضيف على حدة، وقدّمنا ما يناسب أكبر عدد منهم دون أن نُهمل أحدًا.`,
     fallbackFirst: 'الخيار الأقرب لذوق المجموعة',
@@ -89,9 +90,10 @@ const EN = {
     fallback: 'The agent didn\'t finish this time, so the places are shown in Qloo group-fit order instead.'
   },
   plan: {
+    privateTaste: 'a guest favourite',
     defaultTitle: city => `A gathering in ${city}`,
     defaultSummary: (occasion, city) => `A plan for "${occasion}" in ${city}.`,
-    reason: (labels, feedback) => `Thooq used every guest's favourites as Qloo taste signals: ${labels.join(', ')}. It then ranked each place against each guest's taste separately and preferred places that suit the most guests without leaving anyone out${feedback ? ', taking earlier votes on plans with similar tastes into account' : ''}. Age suitability, budget, food and opening hours should be confirmed with the place.`,
+    reason: (labels, feedback, kept = 0) => `${labels.length ? `Thooq used every guest's favourites as Qloo taste signals: ${labels.join(', ')}${kept ? `, and ${kept} more that guests kept private` : ''}.` : "Thooq used every guest's favourites as Qloo taste signals; guests keep their favourites private."} It then ranked each place against each guest's taste separately and preferred places that suit the most guests without leaving anyone out${feedback ? ', taking earlier votes on plans with similar tastes into account' : ''}. Age suitability, budget, food and opening hours should be confirmed with the place.`,
     fallbackTitle: city => `A gathering for every taste in ${city}`,
     fallbackConcept: city => `We ranked places in ${city} by how close they are to each guest's taste and put first the ones that suit the most guests without leaving anyone out.`,
     fallbackFirst: 'Closest to the group\'s taste',
@@ -124,7 +126,9 @@ const ENGLISH_MESSAGES = new Map([
   ['الملف غير موجود.', 'File not found.'],
   ['غير مسموح.', 'Not allowed.'],
   ['حصل خطأ غير متوقع.', 'Something unexpected happened.'],
-  ['اختاري تقييمًا جيدًا أو سيئًا.', 'Choose a good or a bad rating.']
+  ['اختاري تقييمًا جيدًا أو سيئًا.', 'Choose a good or a bad rating.'],
+  ['أرسلي من مفضلة إلى ست مفضلات للتحقق.', 'Send one to six favourites to check.'],
+  ['هذه الصفحة لصاحبة العزيمة فقط. افتحيها من رابطك الخاص.', 'Only the host can do this. Open the gathering from your private host link.']
 ]);
 
 export function messageFor(error, lang) {

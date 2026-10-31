@@ -93,12 +93,20 @@ export function loadDemoResolution({ qloo, file = new URL('./demo/demo-resolved.
   return resolvedPromise;
 }
 
+function confirmedFavourites(guest, resolved) {
+  const list = guest.favourites.flat().filter(item => resolved[item.name]?.id).map(item => ({ id: resolved[item.name].id, name: resolved[item.name].name, type: item.type, text: item.name }));
+  return list.length ? { resolved: list } : {};
+}
+
 export function createDemoEvent(language, resolved = {}) {
   const lang = languageOf(language);
   const createdAt = new Date().toISOString();
   const answers = DEMO_TEMPLATE.guests.map(guest => ({
     id: randomUUID(), name: guest.name[lang], createdAt,
-    answers: [guest.favourites[0].map(item => item.name), guest.favourites[1].map(item => item.name), [...guest.moods[lang]]]
+    answers: [guest.favourites[0].map(item => item.name), guest.favourites[1].map(item => item.name), [...guest.moods[lang]]],
+    // Fictional guests: favourites confirmed and shared, so the demo can show why a place fits.
+    ...confirmedFavourites(guest, resolved),
+    shareWithHost: true
   }));
   const knownSignals = {};
   const signalOwners = {};

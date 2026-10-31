@@ -21,6 +21,14 @@ async function recommendOutings(qloo, input) {
 }
 const unique = values => [...new Set(values.filter(Boolean))];
 const clip = (value, max) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+// The agent is told never to name a guest's favourites; this is the safety net
+// for plan text that does anyway: whole-word, case-sensitive replacement.
+const escapeRegExp = value => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+export function hidePrivate(text, names, replacement) {
+  if (typeof text !== 'string' || !text || !names.length) return text;
+  return [...names].sort((a, b) => b.length - a.length).reduce((value, name) =>
+    value.replace(new RegExp(`(^|[^\\p{L}\\p{N}])${escapeRegExp(name)}(?=$|[^\\p{L}\\p{N}])`, 'gu'), (_, before) => `${before}${replacement}`), text);
+}
 const guestLabel = index => `G${index + 1}`;
 
 // Compatibility wrapper for callers that only need the recommend workflow.
@@ -60,18 +68,26 @@ async function resolveSignals(event, translate) {
   }
   const saved = previous?.querySignals ?? previous?.signals;
   if (saved?.length) return { signals: unique(saved.map(value => String(value).trim())), owners: previous.signalOwners ?? {} };
-  const perGuest = event.answers.map(answer => unique(answer.answers.slice(0, 2).flat().map(value => String(value).trim())));
-  const originals = unique(perGuest.flat()).slice(0, MAX_SIGNALS);
+  // Guests who confirmed their own favourites bring Qloo IDs; replies saved
+  // before that bring words, which are translated (and may need a review).
+  const confirmed = index => Array.isArray(event.answers[index].resolved);
+  const perGuest = event.answers.map((answer, index) => confirmed(index)
+    ? unique(answer.resolved.map(item => item.id))
+    : unique(answer.answers.slice(0, 2).flat().map(value => String(value).trim())));
+  const words = unique(perGuest.filter((_, index) => !confirmed(index)).flat()).slice(0, MAX_SIGNALS);
   // Favourites already resolved to Qloo IDs (the demo gathering) skip ambiguity.
   const known = event.knownSignals || {};
-  const translated = (await translate(originals)).map(value => String(value).trim()).map(value => known[value.toLowerCase()]?.id || value);
-  const english = new Map(originals.map((value, index) => [value, translated[index]]));
+  const translated = words.length ? (await translate(words)).map(value => String(value).trim()).map(value => known[value.toLowerCase()]?.id || value) : [];
+  const english = new Map(words.map((value, index) => [value, translated[index]]));
   const owners = {};
+  const signals = [];
   perGuest.forEach((favourites, index) => favourites.forEach(value => {
-    const signal = english.get(value);
-    if (signal) owners[signal] = sortedUnion(owners[signal] || [], [index]);
+    const signal = confirmed(index) ? value : english.get(value);
+    if (!signal) return;
+    if (!signals.includes(signal)) signals.push(signal);
+    owners[signal] = sortedUnion(owners[signal] || [], [index]);
   }));
-  return { signals: unique(translated), owners };
+  return { signals: signals.slice(0, MAX_SIGNALS), owners };
 }
 
 function clarificationsFrom(results, signals) {
@@ -128,7 +144,10 @@ export async function buildTasteRecommendation(event, {
     const unchanged = previous.clarifications?.find(issue => signals.includes(issue.input));
     if (unchanged) throw bilingualError(`«${unchanged.input}» ما زال يحتاج تحديدًا. اختاري نتيجة من القائمة، أو صححي الاسم، أو تجاهلي هذه المفضلة.`, `"${unchanged.input}" still needs a choice. Pick a result from the list, correct the name, or skip this favourite.`);
   }
-  const knownNames = Object.fromEntries(Object.values(event.knownSignals || {}).map(item => [item.id, item.name]));
+  const knownNames = Object.fromEntries([
+    ...Object.values(event.knownSignals || {}).map(item => [item.id, item.name]),
+    ...event.answers.flatMap(answer => Array.isArray(answer.resolved) ? answer.resolved.map(item => [item.id, item.name]) : [])
+  ]);
   const signalLabels = Object.fromEntries(signals.map(signal => {
     const candidate = previous?.clarifications?.flatMap(issue => issue.candidates || []).find(item => item.id === signal);
     return [signal, candidate?.name || previous?.signalLabels?.[signal] || knownNames[signal] || signal];
@@ -200,12 +219,21 @@ export async function buildTasteRecommendation(event, {
   const outcome = await plan({ event, guests, pool, fit, shortlist: ordered, qloo, generate, cityQuery, lang });
   if (outcome.mode !== 'agent') console.warn(`Thooq agent fallback: ${outcome.failure}${outcome.error ? ` — ${outcome.error}` : ''}`);
   const finalFit = outcome.fit;
+  // Privacy: a guest's favourites appear (to the host, or on the shared page)
+  // only when that guest chose to share them.
+  const shares = index => event.answers[index]?.shareWithHost === true;
+  const sharedSignal = signal => (owners[signal] || []).some(shares);
+  const privateNames = unique([
+    ...signals.filter(signal => !sharedSignal(signal)).map(signal => signalLabels[signal]),
+    ...event.answers.flatMap((answer, index) => shares(index) ? [] : [...(answer.resolved || []).flatMap(item => [item.name, item.text]), ...answer.answers.slice(0, 2).flat()])
+  ].map(value => String(value ?? '').trim()).filter(value => value.length >= 3));
+  const hide = text => hidePrivate(text, privateNames, c.plan.privateTaste);
   const fitOf = id => {
     const entry = finalFit.places[id];
     if (!entry) return undefined;
     return {
       count: entry.count, total: entry.total, guests: entry.fits,
-      tastes: entry.fits.map(index => ({ guest: index, favourites: guests[index].resolved.map(item => item.name).slice(0, 3) }))
+      tastes: entry.fits.map(index => ({ guest: index, favourites: shares(index) ? guests[index].resolved.map(item => item.name).slice(0, 3) : [] }))
     };
   };
   const placeOut = id => {
@@ -213,18 +241,18 @@ export async function buildTasteRecommendation(event, {
     return { id, name: place.name, address: place.address || '', fit: fitOf(id) };
   };
   const places = [
-    ...outcome.plan.stops.map(stop => ({ ...placeOut(stop.id), role: stop.role, why: stop.why, stop: true })),
+    ...outcome.plan.stops.map(stop => ({ ...placeOut(stop.id), role: hide(stop.role), why: hide(stop.why), stop: true })),
     ...outcome.alternatives.map(id => ({ ...placeOut(id), alternative: true }))
   ];
   return {
     ...selection, source: 'qloo', learning: ranked.learning,
-    title: outcome.plan.title,
-    summary: outcome.plan.concept || c.plan.defaultSummary(event.occasion, event.city),
-    reason: c.plan.reason(unique(signals.map(signal => signalLabels[signal])), ranked.learning.ratingsUsed > 0),
+    title: hide(outcome.plan.title),
+    summary: hide(outcome.plan.concept) || c.plan.defaultSummary(event.occasion, event.city),
+    reason: c.plan.reason(unique(signals.filter(sharedSignal).map(signal => signalLabels[signal])), ranked.learning.ratingsUsed > 0, signals.filter(signal => !sharedSignal(signal)).length),
     language: lang,
-    considerations: outcome.plan.considerations || [],
+    considerations: (outcome.plan.considerations || []).map(hide),
     agent: { mode: outcome.mode, ...(outcome.failure ? { failure: outcome.failure } : {}), ...(outcome.error ? { detail: clip(outcome.error, 200) } : {}) },
-    agentSteps: [...steps, ...outcome.steps],
+    agentSteps: [...steps, ...outcome.steps.map(step => ({ ...step, text: hide(step.text) }))],
     groupFit: { method: finalFit.method, basis: finalFit.basis, total: finalFit.total, guests: guests.length, ...(finalFit.failures?.length ? { failures: finalFit.failures.slice(0, 4) } : {}) },
     places
   };

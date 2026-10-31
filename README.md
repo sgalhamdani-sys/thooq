@@ -34,7 +34,7 @@ Without Qloo there is no group fit: the agent cannot see places, rank them per g
 
 ## How the agent works
 
-1. **Resolve.** Gemini normalizes Arabic favourites to English names. Each guest's favourites go to Qloo in their own request (Qloo accepts at most ten signals per request). Ambiguous or unknown names are shown to the host to choose, correct or skip.
+1. **Resolve.** Each guest confirms their own favourites before sending: Gemini normalizes Arabic names to English, Qloo matches each one, and the guest picks the right match, corrects the name or leaves it out. Only the confirmed Qloo IDs are used. Each guest's favourites go to Qloo in their own request (Qloo accepts at most ten signals per request).
 2. **Candidates.** Qloo recommends places in the city for each guest and once for the whole group (shared favourites first, then one from each guest in turn). A ten-place shortlist takes the group's best places and each guest's best places, so nobody's taste is missing.
 3. **Group fit.** For every guest, Qloo ranks the same shortlist using only that guest's favourites. A place *suits* a guest when it is in the top 40% of that guest's ranking. Places are ordered by a hybrid of the average and "least misery" group strategies (`0.5 × mean + 0.5 × minimum` of per-guest rank utility), so a place loved by one guest and disliked by the rest does not win. Saved good/bad feedback then adjusts this order slightly.
 4. **Plan.** The agent receives the host's details, anonymous guests (G1, G2, …) with their favourites and mood words, and the scored shortlist. It may call `find_tags`, `search_places` and `score_group_fit` (each with a small budget) and must finish with `finalize_plan`.
@@ -50,7 +50,7 @@ The application contains:
 - **a one-click demo**: «Try the live demo» creates a private copy of a Riyadh family lunch with four guests who have already answered, including a grandmother and children under six, so the agent has real constraints to plan around. Visitors can add themselves as a guest from the questions link;
 - a landing page;
 - a host dashboard for creating an occasion, sharing the guest link, viewing replies, and reading a recommendation;
-- a guest flow with three prompts and three favourites per prompt;
+- a guest flow with three prompts and three favourites per prompt, then a confirmation step where the guest checks each favourite against Qloo and chooses whether the host may see their favourites (off by default);
 - a planning agent that returns a 1–3 stop plan, near alternatives, points to confirm before booking, and the steps it took;
 - per-place group fit («يناسب ذوق ٣ من ٤») with the guests and favourites behind it in the host dashboard, and counts only on the shared page;
 - a separate recommendation link with good/bad guest feedback and aggregate counts in the host dashboard;
@@ -83,7 +83,7 @@ Open `http://localhost:3000`.
 
 Before Qloo entity search, the server calls Gemini to normalize the first two groups of cultural favorites into English names. Original guest replies remain unchanged. Set `GEMINI_API_KEY` in the server environment (or a private `.env` file locally); `GEMINI_MODEL=auto` discovers a compatible Flash model, or set an available model explicitly. Qloo chat provider setup does not configure this application's Gemini integration. Only favorite strings are sent for translation, without guest names. Failed or incomplete translation stops the recommendation with a clear error.
 
-The server runs the official Qloo Harness workflow executor in-process (`recommend`, `rank`, `find_tags`), with place results restricted to the selected city and the hackathon base URL pinned. Ambiguous names produce candidate choices; confirmed entity IDs are reused. The same Gemini key powers the planning agent (see *How the agent works*); it receives anonymous guest labels, never names. A missing result or service error is shown explicitly; the app does not invent replacement places.
+The server runs the official Qloo Harness workflow executor in-process (`recommend`, `rank`, `find_tags`), with place results restricted to the selected city and the hackathon base URL pinned. Guests resolve ambiguous names themselves when they reply; confirmed entity IDs are reused. (Replies saved before guest confirmation existed still go through a host review.) The same Gemini key powers the planning agent (see *How the agent works*); it receives anonymous guest labels, never names. A missing result or service error is shown explicitly; the app does not invent replacement places.
 
 Run `npm.cmd run smoke` on Windows (or `npm run smoke`) for a live end-to-end check with two synthetic guests. It prints the plan, group fit, agent mode and steps, and stores nothing.
 
@@ -146,6 +146,14 @@ tests/          # Synthetic integration and regression tests
 - Gemini API (Flash) with function calling for the planning agent
 
 ## Privacy and credentials
+
+Guests' favourites are private by default:
+
+- each guest confirms their own favourites; the host never reviews them;
+- the host sees who replied and the plan with fit counts, and sees a guest's favourites only if that guest ticks "Let the host see my favourites";
+- the shared plan page shows only favourites that guests chose to share;
+- the planning agent is told never to name a guest's favourites, and plan text that does is masked;
+- creating a gathering returns a private host key (kept in the host's browser and in the dashboard address); the invitation link carries no key, so a guest cannot open the host dashboard or build plans.
 
 Never commit a Qloo API key or put it in browser-side JavaScript. Credentials are configured only in a private local/server environment. The prototype's local JSON data store is intended for development; attach a persistent hosted database before relying on guest replies beyond a single demo session.
 

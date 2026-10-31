@@ -17,7 +17,17 @@
         <section class="question" data-step="3"><h2 data-i18n="guest.q3.title">وش مزاجك للَمّة؟</h2><p data-i18n="guest.q3.text">أضيفي ٣ كلمات، أشياء، أو أنماط تتمنينها في أي طلعة.</p><div class="favorites"><label class="favorite-input"><span data-num="01">٠١</span><input placeholder="مثال: جلسة طويلة، ضحك، هدوء" data-i18n-placeholder="guest.q3.example" required></label><label class="favorite-input"><span data-num="02">٠٢</span><input placeholder="إضافة مفضلة ثانية" data-i18n-placeholder="guest.second" required></label><label class="favorite-input"><span data-num="03">٠٣</span><input placeholder="إضافة مفضلة ثالثة" data-i18n-placeholder="guest.third" required></label></div></section>
         <div class="form-actions"><button class="plain-button" id="previous" type="button" data-i18n="guest.previous">→ السابق</button><button class="button button-dark" id="next" type="button" data-i18n-html="guest.next">التالي <span>←</span></button></div>
       </div>
-      <section class="success" id="success"><span class="brand-mark">ذ</span><h2 data-i18n="guest.success.title">وصل ذَوقك ✦</h2><p data-i18n="guest.success.text">شكرًا لمشاركتك. بنرسل إجابتك لصاحبة العزيمة، وذَوق يبدأ يجمع الخيوط.</p></section>
+      <section class="confirm" id="confirm" hidden>
+        <p class="eyebrow" data-i18n="guest.confirm.eyebrow">الخطوة الأخيرة</p>
+        <h2 data-i18n="guest.confirm.title">تأكدي من مفضلاتك</h2>
+        <p class="confirm-intro" data-i18n="guest.confirm.text">هذا ما وجده Qloo لكل مفضلة. اختاري المقصود، أو صححي الاسم، أو اتركيها.</p>
+        <ol class="confirm-list" id="confirm-list"></ol>
+        <label class="share-choice"><input type="checkbox" id="share-with-host"><span data-i18n="guest.share.label">أسمح لصاحبة العزيمة برؤية مفضلاتي</span></label>
+        <p class="share-help" data-i18n="guest.share.help">بدون ذلك، ترى صاحبة العزيمة أنك أجبتِ فقط. مفضلاتك تُستخدم للبحث ولا تظهر لأحد.</p>
+        <p class="confirm-error" id="confirm-error" role="alert" hidden></p>
+        <div class="form-actions"><button class="plain-button" id="confirm-back" type="button" data-i18n="guest.confirm.back">→ تعديل الإجابات</button><button class="button button-dark" id="confirm-send" type="button" data-i18n-html="guest.confirm.send">تأكيد وإرسال <span>←</span></button></div>
+      </section>
+      <section class="success" id="success"><span class="brand-mark">ذ</span><h2 data-i18n="guest.success.title">وصل ذَوقك ✦</h2><p id="success-text" data-i18n="guest.success.text">شكرًا لمشاركتك. بنرسل إجابتك لصاحبة العزيمة، وذَوق يبدأ يجمع الخيوط.</p></section>
     </main><script src="i18n.js"></script><script src="app.js"></script>
   </body>
 </html>

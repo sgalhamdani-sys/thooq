@@ -163,3 +163,24 @@ h1 em { font-family: "Playfair Display", serif; font-weight: 600; color: var(--o
 /* guest */
 .guest-layout { max-width:720px; margin:auto; padding:0 24px 70px; }.guest-nav{height:88px;display:flex;align-items:center;justify-content:space-between}.event-note{background:#f0e7dc;padding:15px 18px;border-inline-start:4px solid var(--orange);font-size:14px;line-height:1.8}.event-note b{display:block}.guest-intro{padding:48px 0 32px}.guest-intro h1{font-size:47px}.guest-intro p{color:var(--muted);line-height:1.9;margin:15px 0 0}.progress{display:flex;gap:6px;margin:0 0 33px}.progress i{height:3px;flex:1;background:#ddd6cc}.progress i.active{background:var(--orange)}.question{display:none}.question.active{display:block}.question h2{font-size:29px;letter-spacing:-1px;margin:0 0 8px}.question>p{color:var(--muted);margin:0 0 21px}.favorites{display:grid;gap:9px}.favorite-input{display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);padding:9px 0}.favorite-input span{font:12px "DM Mono",monospace;color:var(--orange);width:18px}.favorite-input input{border:0;background:transparent;padding:9px 0;outline:none;width:100%;font-size:16px}.form-actions{display:flex;justify-content:space-between;align-items:center;margin-top:33px}.plain-button{border:0;background:none;cursor:pointer;color:var(--muted);padding:10px 0}.success{display:none;text-align:center;padding:58px 0}.success .brand-mark{margin:auto;width:52px;height:52px;font-size:34px}.success h2{font-size:34px;margin:22px 0 10px}.success p{color:var(--muted);line-height:1.9}.toast{visibility:hidden;opacity:0;position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);padding:11px 16px;background:var(--ink);color:var(--cream);font-size:13px;transition:.2s;z-index:10}.toast.show{visibility:visible;opacity:1;transform:translate(-50%,0)}
 @media (max-width: 760px) {.shell{width:min(100% - 32px, 1180px)}.nav{height:78px}.hero{grid-template-columns:1fr;gap:38px;padding:52px 0}.hero-art{height:300px}.hero-copy{order:0}.steps,.admin-grid{grid-template-columns:1fr}.steps{gap:32px}.event-form,.dashboard{border:0;padding:29px 0}.event-form{border-bottom:1px solid var(--line)}.app-shell{padding:0 20px}.page-head{padding-top:35px}.page-head h1{font-size:37px}.page-head .pill{display:none}.guest-intro h1{font-size:39px}h1{letter-spacing:-2.5px}.hero-art{margin:0 -16px}.card-top{right:42px}.card-bottom{left:46px}}
+
+/* Guest confirmation: each favourite matched in Qloo, confirmed by the guest. */
+.confirm { padding: 34px 0 10px; }
+.confirm h2 { font-size: 34px; letter-spacing: -1px; margin: 0 0 8px; }
+.confirm-intro { color: var(--muted); line-height: 1.9; margin: 0 0 24px; }
+.confirm-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.confirm-item { background: white; border: 1px solid var(--line); border-inline-start: 4px solid #4a765d; padding: 14px 16px; }
+.confirm-item.is-choose { border-inline-start-color: var(--cobalt); }
+.confirm-item.is-missing, .confirm-item.is-error { border-inline-start-color: var(--orange); }
+.confirm-text { margin: 0 0 4px; font-weight: 600; font-size: 17px; }
+.confirm-hint { margin: 0 0 8px; color: var(--muted); font-size: 13px; }
+.confirm-option { display: flex; align-items: flex-start; gap: 10px; padding: 7px 0; cursor: pointer; line-height: 1.6; font-size: 15px; }
+.confirm-option input { margin-top: 5px; accent-color: var(--ink); }
+.confirm-retry { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 6px; }
+.confirm-retry input { flex: 1; min-width: 0; padding: 10px 12px; border: 1px solid var(--line); background: var(--cream); font-size: 15px; }
+.confirm-retry .button { padding: 10px 16px; }
+.share-choice { display: flex; align-items: flex-start; gap: 10px; margin-top: 26px; font-weight: 600; cursor: pointer; line-height: 1.6; }
+.share-choice input { margin-top: 6px; accent-color: var(--orange); width: 18px; height: 18px; }
+.share-help { color: var(--muted); font-size: 14px; line-height: 1.8; margin: 6px 0 0; }
+.confirm-error { color: #a33a1e; background: #fbe8e1; padding: 10px 12px; margin: 18px 0 0; font-size: 14px; }
+.host-link-note { color: var(--muted); font-size: 13px; line-height: 1.7; margin: 10px 0 0; }

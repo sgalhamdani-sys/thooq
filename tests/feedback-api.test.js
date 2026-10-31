@@ -30,15 +30,18 @@ test('share, vote, change vote, rerank, preserve old link and restart with durab
   const directory = await testDirectory('thooq-feedback-test-');
   let server = createThooqServer({ dataDirectory: directory, recommend: fakeRecommend });
   let base = await listen(server);
-  const request = async (path, { method = 'GET', body, cookie, origin } = {}) => {
-    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...(origin ? { Origin: origin } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+  const request = async (path, { method = 'GET', body, cookie, origin, host } = {}) => {
+    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...(origin ? { Origin: origin } : {}), ...(host ? { 'X-Thooq-Host': host } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     return { status: response.status, cookie: response.headers.get('set-cookie')?.split(';')[0], data: await response.json() };
   };
   try {
     const created = await request('/api/events', { method: 'POST', body: { occasion: 'طلعة صديقات', city: 'الرياض' } });
     const id = created.data.event.id;
+    const host = created.data.hostKey;
+    assert.match(host, /^[a-f0-9]{36}$/);
     await request(`/api/events/${id}/answers`, { method: 'POST', body: { name: 'Synthetic Guest Private Name', answers: [['a', 'b', 'c'], ['d', 'e', 'f'], ['g', 'h', 'i']] } });
-    const first = await request(`/api/events/${id}/recommendation`, { method: 'POST', body: {} });
+    assert.equal((await request(`/api/events/${id}/recommendation`, { method: 'POST', body: {} })).status, 403, 'only the host builds plans');
+    const first = await request(`/api/events/${id}/recommendation`, { method: 'POST', body: {}, host });
     assert.equal(first.status, 200);
     const token = first.data.recommendation.shareToken;
     assert.match(token, /^[a-f0-9]{48}$/);
@@ -66,9 +69,9 @@ test('share, vote, change vote, rerank, preserve old link and restart with durab
     assert.deepEqual(changed.data.recommendation.feedback, { good: 1, bad: 7, total: 8 });
     await request(path + '/feedback', { method: 'POST', cookie, body: { rating: 'bad' } });
     assert.equal((await request(path, { cookie })).data.recommendation.myRating, 'bad');
-    assert.deepEqual((await request(`/api/events/${id}`)).data.event.feedback, { good: 0, bad: 8, total: 8 });
+    assert.deepEqual((await request(`/api/events/${id}`, { host })).data.event.feedback, { good: 0, bad: 8, total: 8 });
 
-    const next = await request(`/api/events/${id}/recommendation`, { method: 'POST', body: {} });
+    const next = await request(`/api/events/${id}/recommendation`, { method: 'POST', body: {}, host });
     assert.equal(next.status, 200);
     assert.equal(next.data.recommendation.learning.ratingsUsed, 8);
     assert.notDeepEqual(next.data.recommendation.places, first.data.recommendation.places);
@@ -98,12 +101,14 @@ test('a feedback vote arriving while Qloo runs is not overwritten by recommendat
     return fakeRecommend(event);
   } });
   const base = await listen(server);
+  let host;
   const post = async (path, body, cookie) => {
-    const response = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}) }, body: JSON.stringify(body) });
+    const response = await fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(cookie ? { Cookie: cookie } : {}), ...(host ? { 'X-Thooq-Host': host } : {}) }, body: JSON.stringify(body) });
     return { status: response.status, ...await response.json() };
   };
   try {
-    const { event } = await post('/api/events', { city: 'الرياض' });
+    const { event, hostKey } = await post('/api/events', { city: 'الرياض' });
+    host = hostKey;
     await post(`/api/events/${event.id}/answers`, { name: 'Test', answers: [['a', 'b', 'c'], ['d', 'e', 'f'], ['g', 'h', 'i']] });
     const first = await post(`/api/events/${event.id}/recommendation`, {});
     const path = `/api/shared/${first.recommendation.shareToken}`;

@@ -51,14 +51,15 @@ test('real harness ambiguity is displayed; confirming a candidate ID reaches Riy
   const result = await buildTasteRecommendation({ ...event, recommendation: review, confirmedSignals: [tvId, 'Known Cafe'] }, { generate: null, qloo: live.qloo, translate });
   assert.equal(result.source, 'qloo');
   assert.equal(result.places[0].id, placeId);
-  assert.deepEqual(result.places[0].fit, { count: 1, total: 1, guests: [0], tastes: [{ guest: 0, favourites: ['Naruto', 'Known Cafe'] }] });
+  // This guest did not choose to share, so the plan names nobody's favourites.
+  assert.deepEqual(result.places[0].fit, { count: 1, total: 1, guests: [0], tastes: [{ guest: 0, favourites: [] }] });
   const [guestQuery, groupQuery] = recommends(live);
   assert.deepEqual(guestQuery['signal.interests.entities'], [tvId, cafeId]);
   assert.deepEqual(groupQuery['signal.interests.entities'], [tvId, cafeId]);
   assert.equal(guestQuery['filter.location.query'], 'Riyadh, Saudi Arabia');
   assert.equal(guestQuery['filter.type'], 'urn:entity:place');
   assert.equal(result.signalLabels[tvId], 'Naruto');
-  assert.ok(result.reason.includes('Naruto'));
+  assert.ok(!result.reason.includes('Naruto'), 'private favourites are not listed for the host');
   assert.ok(!result.reason.includes(tvId));
   assert.equal(result.signals, undefined, 'successful results must not render another confirmation form');
 
